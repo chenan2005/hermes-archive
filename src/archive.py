@@ -205,18 +205,13 @@ def merge_into_group(gid, title, description, summary, message_ids,
 
 
 def _record_session_archive(index, session_id, msg_count, timestamp):
-    """Record session archive metadata in index.json."""
+    """Record session archive metadata in index.json (dict keyed by session_id)."""
     if "session_archive_records" not in index:
-        index["session_archive_records"] = []
-    index["session_archive_records"] = [
-        r for r in index["session_archive_records"]
-        if r.get("session_id") != session_id
-    ]
-    index["session_archive_records"].append({
-        "session_id": session_id,
+        index["session_archive_records"] = {}
+    index["session_archive_records"][session_id] = {
         "msg_count": msg_count,
         "time": timestamp,
-    })
+    }
 
 
 def _delete_group(gid):

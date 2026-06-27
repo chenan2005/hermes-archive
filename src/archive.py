@@ -18,12 +18,12 @@ Data model (LLM-driven topic grouping, no keyword matching):
     {"version": 4, "next_gid": N, "groups": [{gid, title, description, ...}]}
 
 Usage:
-  echo '<analysis_json>' | python3 archive.py         # archive (stdin)
-  python3 archive.py ls [project <name>]              # list groups
-  python3 archive.py show <gid> [<gid> ...]          # group detail by gid
-  python3 archive.py show --title <query>            # group detail by title (fuzzy)
-  python3 archive.py delete <gid>                    # delete group
-  python3 archive.py delete --title <query>          # delete by title match
+  echo '<analysis_json>' | python3 src/archive.py         # archive (stdin)
+  python3 src/archive.py ls [project <name>]              # list groups
+  python3 src/archive.py show <gid> [<gid> ...]          # group detail by gid
+  python3 src/archive.py show --title <query>            # group detail by title (fuzzy)
+  python3 src/archive.py delete <gid>                    # delete group
+  python3 src/archive.py delete --title <query>          # delete by title match
 """
 
 import fcntl

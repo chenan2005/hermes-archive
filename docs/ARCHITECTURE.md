@@ -137,19 +137,19 @@ with _locked_index() as index:
 **stdin 模式**（无参数时触发，用于 `archive` action）：
 
 ```bash
-echo '{"session_id":"...","groups":[...]}' | python3 archive.py
+echo '{"session_id":"...","groups":[...]}' | python3 src/archive.py
 ```
 
 **子命令模式**：
 
 | 命令 | 用法 |
 |------|------|
-| `archive.py ls` | 列出所有话题 |
-| `archive.py ls project <name>` | 按 project 过滤 |
-| `archive.py show <gid>` | 查看话题详情 |
-| `archive.py show --title <query>` | 按标题模糊搜索 |
-| `archive.py delete <gid>` | 删除话题 |
-| `archive.py delete --title <query>` | 按标题模糊删除 |
+python3 src/archive.py ls               # 列出所有话题
+python3 src/archive.py ls project <name> # 按 project 过滤
+python3 src/archive.py show <gid>        # 查看话题详情
+python3 src/archive.py show --title <query>   # 按标题模糊搜索
+python3 src/archive.py delete <gid>      # 删除话题
+python3 src/archive.py delete --title <query> # 按标题模糊删除
 
 ### 字段限制
 
@@ -205,7 +205,7 @@ registry.register(
     toolset="session_search",     # 借用已有工具集，不改 toolsets.py
     schema=ARCHIVE_SCHEMA,        # LLM 可见的 JSON schema
     handler=...,                   # 参数处理后分发到 _run_archive_subcommand
-    check_fn=check_archive_requirements,  # 条件显示：仅在 archive.py 存在时注册
+    check_fn=check_archive_requirements,  # 条件显示：仅在 src/archive.py 存在时注册
     description="Persist session topics with array-index message references",
     emoji="🗄️",
 )
@@ -216,9 +216,9 @@ registry.register(
 ```python
 def check_archive_requirements() -> bool:
     return ARCHIVE_DIR.exists() and (ARCHIVE_DIR / "archive.py").exists()
-```
+return (ARCHIVE_DIR / "src/archive.py").exists() and DATA_DIR.exists()
 
-仅在 `~/.hermes/archive/archive.py` 存在时注册。如果文件被删除，工具自动消失（不会产生断裂的工具调用）。
+仅在 `~/.hermes/archive/src/archive.py` 和 `~/.hermes/archive/data/` 都存在时注册。
 
 ### 指标 → ID 转换
 

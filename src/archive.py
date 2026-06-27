@@ -36,8 +36,9 @@ from datetime import datetime
 from pathlib import Path
 
 ARCHIVE_DIR = Path(os.path.expanduser("~/.hermes/archive"))
-INDEX_PATH = ARCHIVE_DIR / "index.json"
-GROUPS_DIR = ARCHIVE_DIR / "groups"
+DATA_DIR = ARCHIVE_DIR / "data"
+INDEX_PATH = DATA_DIR / "index.json"
+GROUPS_DIR = DATA_DIR / "groups"
 
 SUMMARY_MAX_CHARS = 3000
 TITLE_MAX_CHARS = 20

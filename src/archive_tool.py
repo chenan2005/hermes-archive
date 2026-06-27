@@ -35,6 +35,21 @@ def check_archive_requirements() -> bool:
     return (ARCHIVE_DIR / "src/archive.py").exists() and DATA_DIR.exists()
 
 
+def _get_session_msg_count(session_id: str) -> int:
+    """Query state.db for the session's message_count."""
+    if not STATE_DB.exists() or not session_id:
+        return 0
+    try:
+        conn = sqlite3.connect(str(STATE_DB))
+        row = conn.execute(
+            "SELECT message_count FROM sessions WHERE id=?", (session_id,)
+        ).fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except Exception:
+        return 0
+
+
 # ── Schema ────────────────────────────────────────────────────────────────────
 
 ARCHIVE_SCHEMA = {
@@ -324,6 +339,7 @@ def _run_archive_subcommand(action: str, args: dict) -> str:
         analysis = {
             "session_id": session_id,
             "groups": converted_groups,
+            "msg_count": _get_session_msg_count(session_id),
         }
         try:
             result = subprocess.run(

@@ -97,7 +97,7 @@ def sanitize_name(name):
 # ─── Write group ─────────────────────────────────────────────────────────────
 
 def write_group(title, description, summary, message_ids, session_id,
-                project=None):
+                project=None, msg_count=0):
     """Write a new group: meta.json + sources/{session}.json. Returns gid."""
 
     gid = next_gid()
@@ -137,12 +137,13 @@ def write_group(title, description, summary, message_ids, session_id,
             "source_sessions": [session_id],
             "message_count": len(message_ids),
         })
+        _record_session_archive(index, session_id, msg_count, now)
 
     return gid
 
 
 def merge_into_group(gid, title, description, summary, message_ids,
-                     session_id, project=None):
+                     session_id, project=None, msg_count=0):
     """Merge new content into an existing group. Overwrites title/description/
     summary with the caller-provided values. Returns gid."""
 
@@ -198,8 +199,24 @@ def merge_into_group(gid, title, description, summary, message_ids,
                     if session_id not in g.get("source_sessions", []):
                         g.setdefault("source_sessions", []).append(session_id)
                 break
+        _record_session_archive(index, session_id, msg_count, now)
 
     return gid
+
+
+def _record_session_archive(index, session_id, msg_count, timestamp):
+    """Record session archive metadata in index.json."""
+    if "session_archive_records" not in index:
+        index["session_archive_records"] = []
+    index["session_archive_records"] = [
+        r for r in index["session_archive_records"]
+        if r.get("session_id") != session_id
+    ]
+    index["session_archive_records"].append({
+        "session_id": session_id,
+        "msg_count": msg_count,
+        "time": timestamp,
+    })
 
 
 def _delete_group(gid):
@@ -258,6 +275,7 @@ def main():
 
     session_id = analysis.get("session_id", "")
     groups_input = analysis.get("groups", [])
+    msg_count = analysis.get("msg_count", 0)
 
     if not session_id or not groups_input:
         print(json.dumps({"success": False, "error": "Missing session_id or groups"}))
@@ -285,7 +303,7 @@ def main():
             try:
                 merge_into_group(
                     merge_into, title, description, summary,
-                    message_ids, session_id, project)
+                    message_ids, session_id, project, msg_count=msg_count)
                 results.append({
                     "group": title,
                     "gid": merge_into,
@@ -301,7 +319,8 @@ def main():
         else:
             try:
                 gid = write_group(title, description, summary,
-                                  message_ids, session_id, project)
+                                  message_ids, session_id, project,
+                                  msg_count=msg_count)
                 results.append({
                     "group": title,
                     "gid": gid,

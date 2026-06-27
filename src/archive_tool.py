@@ -40,24 +40,32 @@ def check_archive_requirements() -> bool:
 ARCHIVE_SCHEMA = {
     "name": "archive",
     "description": (
-        "将会话话题归档到 ~/.hermes/archive/ 持久化存储。"
-        "分析会话内容，按话题分组后使用此工具。\n\n"
-        "操作:\n"
-        "  archive([topicData, ...]) — 写入话题组。\n"
-        "  topicData = {merge_into?: gid, title, description, summary, source_message_indices?: [int], message_ids?: [int], project?: string}\n"
-        "    新建话题：传 title/description/summary + source_message_indices（当前会话）或 message_ids（历史会话）\n"
-        "    合并已有话题：加 merge_into=<gid>，新的 title/description/summary 会覆盖原值\n"
-        "  ls        — 列出所有已归档话题（gid + 描述）\n"
-        "  show      — 查看话题详情（title/description/summary），按 gid 或 title\n"
-        "  delete    — 删除话题，按 gid 或 title\n"
-        "  load_session — 读取历史会话全量消息（按 session_id，支持跨 profile）。\n"
-        "               一次调用获取全部消息，替代多次 session_search scroll。\n\n"
-        "最佳实践:\n"
-        "  \u2022 归档前：archive(show, gid=[gid1, gid2, ...]) 一次拉所有待合并话题的当前摘要\n"
-        "  \u2022 归档时：archive([topicData, ...]) 一次写入所有新老话题\n"
-        "  \u2022 合并时产生合并新旧内容的学术风格摘要。\n"
-        "  \u2022 关于配置/扩展/排障 Hermes Agent 本身的话题设 project=\"hermes-agent\"，\n"
-        "    其他话题留空 project。\n"
+        "Archive conversation topics to persistent storage in ~/.hermes/archive/. "
+        "Analyze the conversation, group messages by topic, and use this tool.\n\n"
+        "ACTIONS:\n"
+        "  archive([topicData, ...]) — Write topic groups.\n"
+        "  topicData = {merge_into?: gid, title, description, summary,\n"
+        "               source_message_indices?: [int], message_ids?: [int],\n"
+        "               project?: string}\n"
+        "    New topic: pass title/description/summary +\n"
+        "               source_message_indices (current session) or\n"
+        "               message_ids (past session via session_search)\n"
+        "    Merge into existing: add merge_into=<gid>,\n"
+        "               new title/description/summary overwrite old values\n"
+        "  ls        — List all archived topics (gid + description)\n"
+        "  show      — View topic meta (title/description/summary), by gid or title\n"
+        "  delete    — Remove a topic, by gid or title\n"
+        "  load_session — Load a full past session\'s messages (by session_id,\n"
+        "               cross-profile supported). One call gets all messages —\n"
+        "               replaces multiple session_search scrolls.\n\n"
+        "BEST PRACTICE:\n"
+        "  • Before archiving: archive(show, gid=[gid1, gid2, ...]) to fetch\n"
+        "    existing topic summaries at once.\n"
+        "  • When archiving: archive([topicData, ...]) to write all groups\n"
+        "    (new and merge) in a single call.\n"
+        "  • For merges, produce a consolidated academic-style summary.\n"
+        "  • Set project=\"hermes-agent\" for topics about configuring/extending/\n"
+        "    troubleshooting Hermes Agent itself. Omit for general topics.\n"
     ),
     "parameters": {
         "type": "object",
@@ -80,20 +88,20 @@ ARCHIVE_SCHEMA = {
                     "properties": {
                         "title": {
                             "type": "string",
-                            "description": "Topic title (≤20 chars)",
+                            "description": "Topic title (\u226420 chars)",
                         },
                         "description": {
                             "type": "string",
                             "description": (
-                                "One-sentence topic description (≤120 chars). "
+                                "One-sentence topic description (\u2264120 chars). "
                                 "Injected into system prompt for topic discovery."
                             ),
                         },
                         "summary": {
                             "type": "string",
                             "description": (
-                                "Academic-style summary (目标+关键步骤+结论, "
-                                "≤3000 chars). If all referenced messages total "
+                                "Academic-style summary (goal + key steps + conclusion, "
+                                "\u22643000 chars). If all referenced messages total "
                                 "<3K chars, store the raw messages."
                             ),
                         },

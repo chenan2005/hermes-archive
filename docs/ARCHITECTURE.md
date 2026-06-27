@@ -31,29 +31,30 @@ LLM 分析会话 → 识别话题组 → 调用 archive 工具 → 写入 ~/.her
 ## 2. 文件布局
 
 ```
-~/.hermes/archive/                            # 归档数据独立目录（独立 git 仓库）
-├── archive.py                                # v4 归档引擎（492 行）
-├── dedup.py                                  # SimHash 去重模块（95 行）
-├── index.json                                # 全局索引（gid, title, description, project）
-├── groups/                                   # 话题组数据
-│   ├── general/{gid}/                        # 无 project 的话题
-│   │   ├── meta.json                         # 元数据（title, description, summary, 时间戳）
-│   │   └── sources/{session_id}.json         # 原始消息 ID 引用
-│   └── projects/{project}/{gid}/             # project 命名空间下的话题
-└── docs/
-    └── ARCHITECTURE.md                       # 本文档
-
-~/.hermes/hermes-agent/tools/
-├── archive_tool.py                           # Hermes 工具集成（474 行）
-└── ...                                       # 其他 Hermes 内置工具
+~/.hermes/archive/                            # 项目根目录（独立 git 仓库）
+├── src/                                      # 源码
+│   ├── archive.py                            # v4 归档引擎（492 行）
+│   ├── dedup.py                              # SimHash 去重模块（95 行）
+│   └── archive_tool.py                       # Hermes 工具集成（474 行）
+├── data/                                     # 运行时数据
+│   ├── index.json                            # 全局索引
+│   └── groups/                               # 话题组数据
+│       ├── general/{gid}/                    # 无 project 的话题
+│       │   ├── meta.json                     # 元数据
+│       │   └── sources/{session_id}.json     # 原始消息 ID 引用
+│       └── projects/{project}/{gid}/         # project 命名空间
+├── docs/
+│   └── ARCHITECTURE.md                       # 本文档
+├── install.sh                                # 部署脚本
+└── .gitignore
 ```
 
 ### git 仓库
 
-| 仓库 | 位置 | 分支 | 说明 |
-|------|------|------|------|
-| 归档数据 | `~/.hermes/archive/.git` | `master` | commit `422ec4c`: init: session archive toolchain v4 |
-| Hermes 核心 | `~/.hermes/hermes-agent/.git` | `main` | `archive_tool.py` 已合入主库 (commit `ede35f50d`: feat: session archive tool) |
+| 仓库 | 位置 | 分支 | 最近 commit |
+|------|------|------|-------------|
+| 归档项目 | `~/.hermes/archive/.git` | `master` | `ddc8a07` refactor: 项目目录重构 |
+| Hermes 核心 | `~/.hermes/hermes-agent/.git` | `local/customizations` | `ede35f50d` feat: session archive tool (zero Hermes core modifications) |
 
 ---
 
@@ -109,7 +110,7 @@ LLM 分析会话 → 识别话题组 → 调用 archive 工具 → 写入 ~/.her
 
 ## 4. 引擎层: archive.py
 
-位置：`~/.hermes/archive/archive.py`（492 行）
+位置：`~/.hermes/archive/src/archive.py`（492 行）
 
 ### 文件锁
 
@@ -162,7 +163,7 @@ echo '{"session_id":"...","groups":[...]}' | python3 archive.py
 
 ## 5. 去重层: dedup.py
 
-位置：`~/.hermes/archive/dedup.py`（95 行）
+位置：`~/.hermes/archive/src/dedup.py`（95 行）
 
 基于 **SimHash 指纹** 的语义去重，用于在合并话题时过滤掉重复的摘要内容。
 
@@ -192,7 +193,7 @@ kept_ids, skipped = dedup_messages(
 
 ## 6. 工具层: archive_tool.py
 
-位置：`~/.hermes/hermes-agent/tools/archive_tool.py`（474 行）
+位置：`~/.hermes/archive/src/archive_tool.py`（474 行）。`install.sh` 部署到 `hermes-agent/tools/`。
 
 ### 注册方式
 
@@ -331,9 +332,9 @@ archive(action='archive', session_id='xxx', groups=[{
 
 ```bash
 cd ~/.hermes/archive
-python3 archive.py ls                         # 列出所有话题
-python3 archive.py show 3                     # 查看 gid=3
-python3 archive.py show --title SSH           # 标题搜索
+python3 src/archive.py ls                         # 列出所有话题
+python3 src/archive.py show 3                     # 查看 gid=3
+python3 src/archive.py show --title SSH           # 标题搜索
 ```
 
 ### 测试 Hermes 工具集成
@@ -350,11 +351,11 @@ print('check:', check_archive_requirements())
 
 如果 `archive` 工具在 Hermes 中不可见：
 
-1. 确认 `~/.hermes/archive/archive.py` 存在
-2. 确认 `~/.hermes/hermes-agent/tools/archive_tool.py` 存在
+1. 确认 `~/.hermes/archive/src/archive.py` 存在
+2. 确认 `~/.hermes/hermes-agent/tools/archive_tool.py` 存在（否则运行 `bash ~/.hermes/archive/install.sh`）
 3. `hermes tools list | grep archive`
 4. 如果未注册，重启 Hermes（`/reset`）
-5. 如果仍不可见，检查 hermes-agent 版本是否包含 archive_tool commit
+5. 如果仍不可见，检查 hermes-agent 版本是否包含 archive_tool
 
 ### 当前归档状态
 
@@ -363,5 +364,5 @@ print('check:', check_archive_requirements())
 | 引擎版本 | v4 |
 | 已归档话题 | 9 |
 | 下一个 gid | 12 |
-| 引擎文件 | ~/.hermes/archive/archive.py (492行) |
-| 工具文件 | ~/.hermes/hermes-agent/tools/archive_tool.py (474行) |
+| 源码位置 | `~/.hermes/archive/src/` |
+| 部署工具 | `~/.hermes/archive/install.sh` |

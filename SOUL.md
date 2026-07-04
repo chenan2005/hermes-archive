@@ -97,11 +97,13 @@
 
 # Skill Git Sync
 
-所有自定义 skill 的存档仓库在 `~/hermes-skills-archive/`。对 skill 做以下操作后必须同步：
+所有自定义 skill 的存档仓库在 `~/hermes-archive/`。对 skill 做以下操作后必须同步到 `skills/` 子目录：
 
-- **新建 skill** → 复制到 `~/hermes-skills-archive/` 对应分类目录，git add + commit
-- **修改 skill** → `skill_manage patch` 后，同步修改到存档仓库对应文件，git add + commit
-- **删除 skill** → 从存档仓库删除对应目录，git add + commit（删之前确认已留档）
+- **新建 skill** → 复制到 `~/hermes-archive/skills/` 对应分类目录，git add + commit
+- **修改 skill** → `skill_manage patch` 后，同步修改到 `~/hermes-archive/skills/` 对应文件，git add + commit
+- **删除 skill** → 从 `~/hermes-archive/skills/` 删除对应目录，git add + commit（删之前确认已留档）
+
+MEMORY.md、USER.md、SOUL.md 同样纳入 `~/hermes-archive/` 根目录统一管理，每次修改后 git add + commit。
 
 commit message 格式：`<action>: <skill-name>`（如 `patch: home-ops proxy.md`、`delete: sing-box-linux`）
 

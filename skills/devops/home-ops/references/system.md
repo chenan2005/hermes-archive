@@ -1,19 +1,10 @@
 ## 目录
-
 - [android-device-management](#android-device-management)
 - [remote-script-execution](#remote-script-execution)
 
 ---
 
-## 目录
 
-- [archive-system](#archive-system)
-
----
-
-# archive-system
-
-# android-device-management
 
 # android-device-management
 
@@ -144,15 +135,6 @@ When user asks to send proxy configs (e.g. OpenClash nodes from router) to an An
 - **Kill frpc from FRP tunnel**: Will disconnect yourself. If restart needed, ask user to open Termux and run the restart command.
 - **termux-open reliability**: Some APKs fail with "安装包损坏" even when MD5 matches. Use manual file manager install instead.
 - **FRP proxy name uniqueness**: Each device's frpc must use a unique `[proxy-name]` in its config. Phone=`ssh-android`, Tablet=`ssh-magicpad` (or `ssh-tablet`). Duplicates cause `proxy [name] already exists` on the server.
-
-## 目录
-
-- [remote-script-execution](#remote-script-execution)
-- [webhook-subscriptions](#webhook-subscriptions)
-
----
-
-# remote-script-execution
 
 # remote-script-execution
 
@@ -394,5 +376,3 @@ if r['exit_code'] != 0:
 - **OpenClash restores config from backup**: Editing `/etc/openclash/config.yaml` alone is not enough — also edit `/etc/openclash/config/config.yaml` which OpenClash copies from on restart.
 - **Shell syntax errors may be display artifacts**: If `sh -n` passes but the script fails, the actual syntax error message may contain redacted text. Check the file on the remote with a byte-level approach.
 - **Pipe-through-SSH is NOT immune to redaction**: Piping script content through `python3 ... | ssh host 'cat > /tmp/script.sh'` can ALSO trigger the redactor if the content contains `$(awk`, `$(cat`, or similar command-substitution patterns that the redactor interprets as secret retrieval. The redactor intercepts content between the pipe and SSH's stdin. If you see the pattern replaced with `***` on the remote, fall back to printf octal on remote (Step 5 above).
-
-# webhook-subscriptions

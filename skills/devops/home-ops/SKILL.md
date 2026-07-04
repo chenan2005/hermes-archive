@@ -22,8 +22,7 @@ category: devops
 | 路由器 | [openwrt](references/openwrt.md) | Hyper-V 部署 OpenWrt/ImmortalWrt/PassWall 分流/SNI路由 |
 | Windows 管理 | [windows](references/windows.md) | 代理客户端(Xray/sing-box)/SSH 崩溃恢复(WinRM+MD4) |
 | 设备资产 | [assets](references/assets.md) | 全设备清单(IP/MAC/SSH)/网络拓扑/DNS链路/WOL/新设备上架 |
-| Hermes 配置 | [system-hermes](references/system-hermes.md) | token优化/custom provider/memory provider/升级/API余额 |
-| 归档/Android/脚本 | [system](references/system.md) | 会话归档系统/Android Termux/远程脚本/Webhook |
+| Android/脚本 | [system](references/system.md) | Android Termux/远程脚本执行 |
 
 ## 使用方式
 
@@ -31,13 +30,3 @@ category: devops
 2. 每个 reference 自带目录，agent 按需阅读具体章节
 3. 跨域问题（如代理+网络排坑）→ 加载多个 reference
 
-## 维护规范
-
-- **reference 上限 ~80K**（约 20K tokens），超过则按子域拆分为独立文件
-- **新增内容** → 找到对应 reference 用 `skill_manage patch` 补充，或在 `references/` 下新建文件 + 更新上方导航表
-- **不新建 devops/ 下的独立 skill**（已全部合并入本 hub，SOUL.md Skill Git Sync 有对应规则）
-- **变更历史** → [consolidation-2026-07-04](references/consolidation-2026-07-04.md)
-
-## 架构说明
-
-本 hub 由 33 个独立 devops skill 合并而来（2026-07-04）。合并原因、策略和维护规则见 [consolidation](references/consolidation-2026-07-04.md)。

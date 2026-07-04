@@ -99,7 +99,5 @@ For the reminder system architecture and how to add new categories, see `referen
 
 - s1 [2026-06-23] 十字链表 2D 空间索引 | session:20260623_073737_b89954 | ~/mywork/cross-linked-list/ | 三方案对比：纯网格(N=5000) 0.019ms/frame 最佳，269x 快于纯链表。git 已初始化，docs/architecture.md 有完整实现文档。
 - s2 [2026-06-25] 量化炒股入门 | session:20260625_222409_5144ca | ~/mywork/quant-trading/ | baostock 数据源跑通，双均线策略(MA5×MA20)回测平安银行 5.5年42次交易微亏0.01%，胜率31%。git 已初始化，src/run_backtest.py 纯终端版可用。
-- s3 [2026-06-27] Hermes 能力强化 — SOUL.md 配置 | session:20260627_074903_d8f54f | ~/.hermes/SOUL.md | 完成第①套身份系统 + Knowledge Organization 原则写入 SOUL.md。浏览了 agency-agents-zh 角色模板库。剩余待配：④图像生成。
-- s4 [2026-06-27] Hermes 能力强化 — Tokscale + RTK 安装 | session:20260627_054514_b27f75 | tokscale (npm -g), rtk (~/.local/bin) | ⑤省钱脑完成：Tokscale v4.0.4 已装，可直接读 Hermes state.db 看 Token 用量（首报 $23.19）；RTK v0.42.4 已装，Hermes 插件已配置，下次重启生效压缩终端输出。还差：④图像生成。
 - s5 [2026-06-27] 归档系统开发 + 知识体系整理 | session:20260627_085902_772212 | ~/.hermes/archive/ + SOUL.md + skills | 归档系统 v4 重构成 src/data/docs，中英文工具描述，session_archive_records 索引。Memory 从 27 条精简约 8 条（72%）。确立三层组织：SOUL.md（行为原则）/ Memory（环境事实）/ Skills（流程细则）。归档系统推送到 github.com/chenan2005/hermes-archive。watchdog 测试后删除（cron 不支持 CLI）。当前手动归档。
 - s6 [2026-06-28→06-29] minipc 切到 sing-box 纯 CLI 代理 | session:20260628_175323_d1758c | minipc (71.21, Win11) | Clash Verge 已卸载。已部署 sing-box v1.13.14，4节点（Alibaba-Seoul/VLESS-Reality, VMISS-HK, KVM, Seoul-Cloudflare），bind_interface: WLAN 走手机热点，SOCKS5=7897 / HTTP=7890。Google/Baidu 测试通过（200/0.8s）。运维脚本在 C:\ProgramData\sing-box\。可远程 SSH 管理。

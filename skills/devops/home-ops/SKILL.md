@@ -12,16 +12,26 @@ category: devops
 
 | 域 | reference | 覆盖内容 |
 |----|-----------|---------|
-| 代理 & 翻墙 | [proxy](references/proxy.md) | sing-box 部署/配置/TUN、OpenClash API/调试/迁移、节点测速、自建 VPS 代理(Xray/3X-UI)、带宽测试 |
-| 网络基础设施 | [network](references/network.md) | 排坑汇总、FRP 内网穿透、Cloudflare Tunnel/CDN、WiFi 切换(minipc)、WOL 远程唤醒 |
-| 路由器 | [openwrt](references/openwrt.md) | Hyper-V 部署 OpenWrt/ImmortalWrt、PassWall 分流/加速、DNS 架构 |
-| Windows 管理 | [windows](references/windows.md) | 代理客户端(Xray/sing-box)、SSH 崩溃恢复(WinRM+MD4)、WiFi 无线电 |
-| 设备资产 | [assets](references/assets.md) | 全设备清单(IP/MAC/SSH)、网络拓扑、DNS 链路、WOL 命令、新设备上架流程 |
-| 系统运维 | [system](references/system.md) | Hermes 配置优化(token/内存/升级)、归档系统、Android Termux、远程脚本、Webhook |
-| Kanban 工作流 | [kanban](references/kanban.md) | 编排者 playbook、worker 指南 |
+| 代理 — sing-box | [proxy-sing-box](references/proxy-sing-box.md) | sing-box 部署/配置/DNS/分流/TUN/Clash API/5G加速/systemd |
+| 代理 — OpenClash | [proxy-openclash](references/proxy-openclash.md) | OpenClash API 安全调用/诊断调试/redir-host/PassWall迁移坑 |
+| 代理 — 自建 VPS | [proxy-self-hosted](references/proxy-self-hosted.md) | 3X-UI/Xray/VLESS+Reality 部署/VPS 网络测速 |
+| 代理 — 测速 | [proxy-test](references/proxy-test.md) | OpenClash 节点带宽测速(Cloudflare CDN 50MB)/SOCKS5 延迟抖动 |
+| 网络 — 排坑 | [network-pitfalls](references/network-pitfalls.md) | DNS劫持/fake-IP/安全过滤/编码/nftables/会话保持 排坑汇总 |
+| 网络 — FRP/CF | [network-frp](references/network-frp.md) | FRP 内网穿透/Cloudflare Tunnel+CDN 加速 |
+| 网络 — WOL/WiFi | [network-wol](references/network-wol.md) | WOL 远程唤醒(Win+OpenWrt+BIOS)/minipc WiFi 切换 |
+| 路由器 | [openwrt](references/openwrt.md) | Hyper-V 部署 OpenWrt/ImmortalWrt/PassWall 分流/SNI路由 |
+| Windows 管理 | [windows](references/windows.md) | 代理客户端(Xray/sing-box)/SSH 崩溃恢复(WinRM+MD4) |
+| 设备资产 | [assets](references/assets.md) | 全设备清单(IP/MAC/SSH)/网络拓扑/DNS链路/WOL/新设备上架 |
+| Hermes 配置 | [system-hermes](references/system-hermes.md) | token优化/custom provider/memory provider/升级/API余额 |
+| 归档/Android/脚本 | [system](references/system.md) | 会话归档系统/Android Termux/远程脚本/Webhook |
+| Kanban 工作流 | [kanban](references/kanban.md) | 编排者 playbook/worker 指南 |
 
 ## 使用方式
 
 1. 从导航表找到对应域 → `skill_view(name='home-ops', file_path='references/xxx.md')`
 2. 每个 reference 自带目录，agent 按需阅读具体章节
 3. 跨域问题（如代理+网络排坑）→ 加载多个 reference
+
+## 架构说明
+
+本 hub 由 33 个独立 devops skill 合并而来（2026-07-04）。合并原因、策略和维护规则见 [consolidation](references/consolidation-2026-07-04.md)。

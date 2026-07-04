@@ -1,6 +1,6 @@
 ---
 name: home-ops
-description: 家庭网络运维与设备管理 — 代理(sing-box/Xray/OpenClash)、路由器(OpenWrt/ImmortalWrt)、DNS/WiFi/WOL/FRP/Cloudflare、Windows远程管理、VPS自建代理、设备资产、归档监控、Android Termux、Hermes配置。触发：用户提到路由器/代理/节点/WiFi/DNS/WOL/远程桌面/FRP/OpenWrt/OpenClash/VPS/资产/sing-box/翻墙/带宽/测速时。
+description: 家庭网络运维与设备管理 — 代理(sing-box/Xray/OpenClash)、路由器(OpenWrt/ImmortalWrt)、DNS/WiFi/WOL/FRP/Cloudflare、Windows远程管理、VPS自建代理、设备资产、归档监控、Android Termux、Hermes配置。触发：用户提到路由器/代理/节点/WiFi/DNS/WOL/远程/SSH/RDP/FRP/OpenWrt/OpenClash/VPS/资产/sing-box/翻墙/带宽/测速，或提到设备名(9950x3d/minipc/lenovo/openwrt/immort/bernarty/realme/magicpad)时。
 category: devops
 ---
 
@@ -29,4 +29,24 @@ category: devops
 1. 从导航表找到对应域 → `skill_view(name='home-ops', file_path='references/xxx.md')`
 2. 每个 reference 自带目录，agent 按需阅读具体章节
 3. 跨域问题（如代理+网络排坑）→ 加载多个 reference
+
+## 维护指南
+
+### 如何扩展
+- **新增内容** → 找到对应 reference 用 `skill_manage patch` 追加，判断是否属于运维域
+- **新增子域** → 在 `references/` 下建新文件 + 更新导航表
+- **reference 过大** → 超 ~80K 按子域拆分
+
+### 拆分 reference 的 regex 坑
+多个 section header 有前缀关系时（如 `sing-box-linux` vs `sing-box-linux-client`），正则 alternation 中长名必须在前：`ab|a`。`a|ab` 会先匹配短名导致长名内容被吞。
+
+### 从 git 恢复误删/损坏内容
+```bash
+cd ~/hermes-archive
+git show 14bdd4f:devops/<name>/SKILL.md > ~/.hermes/skills/devops/<name>/SKILL.md
+```
+14bdd4f = 合并前原始状态，007b5ab = 首次合并后。
+
+### 域边界判断
+合并前逐条审视：家庭网络/设备管理 → 入 hub；Hermes Agent 内部系统 → 独立 skill。错例：kanban-orchestrator、archive-system、hermes-cost-optimization 被错误合并后恢复。详细流程见 `references/hub-maintenance.md`。
 

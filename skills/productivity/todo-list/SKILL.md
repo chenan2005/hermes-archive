@@ -83,28 +83,6 @@ For the reminder system architecture and how to add new categories, see `referen
 - t3 [x] [一般] 打通 192.168.71.9 作为网关的连接及代理可用
 - t4 [x] [一般] 旁路由迁移（11→9，ImmortalWrt 接管）
 - t6 [ ] [一般] Seoul Reality dest 域名从 bing 换更冷门的（如 amazon.com），并考虑定期轮换
-- t7 [ ] [一般] 9950X3D(RTX5090) 双模型推理测试：30B A3B vs 27B Dense
-      参考：头条文章 "RTX 3090实测：30B模型跑出196 tok/s，1M上下文已成消费级现实"
-      URL: https://www.toutiao.com/article/7655268644254908938/
-      核心结论：
-      · A3B 架构(30B/每token激活3B) — IQ4_XS 18.17GB + K q8_0/V q4_0，3090 24GB 即可 1M ctx(~21GB)，
-        短文本 196 tok/s，但长文本解码衰减严重(15K ctx 66→41 tok/s)，1M 下实际速度未实测
-      · Dense 模型(27B/每token激活27B) — 推理深度更高，但显存占用大，同上下文 KV cache 需 8-10GB
-      · 5090(32GB) 比 3090 多 8GB，可尝试 KV 全 q8_0 或全 f16 提升质量
-      · 双卡配置参考：GPU0 Qwen3.6-27B(深度推理) / GPU1 Cascade 2 30B(长上下文代码)
-      □ 在 9950X3D 上装 llama.cpp
-      □ 下载 Cascade 2 30B IQ4_XS GGUF（~18GB）+ Qwen3.6-27B GGUF
-      □ 分别测试短文本解码速度（基准线对比）
-      □ 逐步提升 ctx-size（32K→128K→512K→1M），记录 VRAM 占用和解码速度衰减
-      □ 对比不同 KV cache 量化方案对质量/速度的影响（q4_0/q4_0 vs q8_0/q4_0 vs q8_0/q8_0）
-      □ 压力测试：实际填充长上下文（100K+ tokens）测真实生成速度
-      目标：降低 GFW 特征检测风险，提高链路稳定性
-      □ 选一个比 bing.com 更冷门的 dest 域名（如 amazon.com / wikipedia.org / stackoverflow.com）
-      □ SSH 登入 Seoul VPS，编辑 xray config 改 dest 字段
-      □ 重启 xray 服务，确认节点恢复正常
-      □ 验证连通性（curl + YouTube 测速）
-      □ 考虑轮换机制：手动每月换 / cron 自动换 / 多个 dest 轮流
-
 ## 回家待办
 
 - t5 [x] [回家] 搞定 9900K PC 登录，实现免密连接

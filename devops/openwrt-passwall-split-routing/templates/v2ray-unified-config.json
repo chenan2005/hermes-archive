@@ -1,0 +1,125 @@
+{
+  "_comment": "V2Ray unified config template for PassWall split-routing",
+  "_usage": "Replace REPLACE_* placeholders with actual node credentials. This gets copied over /tmp/etc/passwall/TCP_SOCKS.json after PassWall generates it.",
+  
+  "outbounds": [
+    {
+      "_comment": "=== MAIN PROXY (default route) ===",
+      "_flag_tag": "REPLACE_MAIN_NODE_TAG",
+      "_flag_proxy": 0,
+      "_flag_proxy_tag": "nil",
+      "settings": {
+        "vnext": [{
+          "port": "REPLACE_MAIN_PORT",
+          "users": [{
+            "encryption": "none",
+            "id": "REPLACE_MAIN_UUID",
+            "level": 0,
+            "security": "auto"
+          }],
+          "address": "REPLACE_MAIN_ADDRESS"
+        }]
+      },
+      "streamSettings": {
+        "network": "REPLACE_MAIN_TRANSPORT",
+        "tlsSettings": { "serverName": "REPLACE_MAIN_TLS_SNI", "allowInsecure": false },
+        "wsSettings": {
+          "path": "REPLACE_MAIN_WS_PATH",
+          "headers": { "Host": "REPLACE_MAIN_WS_HOST" }
+        },
+        "sockopt": { "mark": 255 },
+        "security": "tls"
+      },
+      "mux": { "enabled": false },
+      "protocol": "vmess",
+      "tag": "REPLACE_MAIN_NODE_TAG"
+    },
+    {
+      "_comment": "=== SECONDARY: SOCKS chain to Xray (for Reality/Hysteria2 protocols V2Ray doesn't support) ===",
+      "protocol": "socks",
+      "tag": "seoul_socks",
+      "settings": {
+        "servers": [{
+          "address": "127.0.0.1",
+          "port": 1071
+        }]
+      }
+    },
+    {
+      "_comment": "=== Direct (China IPs, LAN) ===",
+      "streamSettings": { "sockopt": { "mark": 255 } },
+      "settings": { "domainStrategy": "UseIPv4" },
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "_comment": "=== Blackhole (ads) ===",
+      "protocol": "blackhole",
+      "tag": "blackhole"
+    }
+  ],
+  
+  "log": { "loglevel": "warning" },
+  
+  "policy": {
+    "levels": { "0": { "statsUserUplink": false, "statsUserDownlink": false } }
+  },
+  
+  "routing": {
+    "domainStrategy": "AsIs",
+    "domainMatcher": "hybrid",
+    "_comment_rules": "SNI-based routing: first-match wins. Google auth domains → seoul_socks. Everything else falls through to default route (main proxy).",
+    "rules": [
+      {
+        "type": "field",
+        "outboundTag": "seoul_socks",
+        "domain": [
+          "domain:accounts.google.com",
+          "domain:accounts.google.co.kr",
+          "domain:accounts.google.com.hk",
+          "domain:accounts.google.com.sg",
+          "domain:accounts.youtube.com",
+          "domain:oauth2.googleapis.com",
+          "domain:www.googleapis.com",
+          "domain:openidconnect.googleapis.com",
+          "domain:securetoken.googleapis.com",
+          "domain:identitytoolkit.googleapis.com",
+          "domain:android.googleapis.com",
+          "domain:clientauth.googleapis.com",
+          "domain:people.googleapis.com",
+          "domain:content-googleapis.com",
+          "domain:ssl.gstatic.com",
+          "domain:www.gstatic.com",
+          "domain:apis.google.com",
+          "domain:play.google.com",
+          "domain:myaccount.google.com"
+        ]
+      }
+    ]
+  },
+  
+  "inbounds": [
+    {
+      "_comment": "=== SOCKS proxy (for direct client use) ===",
+      "port": 1070,
+      "protocol": "socks",
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls"] },
+      "settings": { "udp": true, "auth": "noauth" },
+      "listen": "0.0.0.0"
+    },
+    {
+      "_comment": "=== Transparent proxy (iptables REDIRECT target) ===",
+      "sniffing": {
+        "enabled": true,
+        "domainsExcluded": ["courier.push.apple.com", "Mijia Cloud"],
+        "destOverride": ["http", "tls"],
+        "metadataOnly": false
+      },
+      "settings": { "network": "tcp", "followRedirect": true },
+      "streamSettings": { "sockopt": { "tproxy": "redirect" } },
+      "port": 1041,
+      "protocol": "dokodemo-door",
+      "tag": "tcp_redir"
+    }
+  ]
+}

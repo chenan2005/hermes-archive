@@ -1,0 +1,181 @@
+# OpenClash Config Template — Migrated from PassWall UCI nodes
+# Use this as a starting point; replace <PLACEHOLDER> values with real data.
+
+port: 7890
+socks-port: 7891
+mixed-port: 7893
+redir-port: 7892
+tproxy-port: 7895
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: false
+external-controller: 0.0.0.0:9090
+secret: ""
+
+# WAN interface for outbound traffic
+interface-name: eth1
+
+# Fake-IP DNS (best DNS anti-pollution — no extra chinadns/smartdns needed)
+dns:
+  enable: true
+  listen: 0.0.0.0:7874
+  ipv6: false
+  default-nameserver:
+    - <LAN_GATEWAY>        # e.g. 192.168.37.1 (old router)
+    - 223.5.5.5            # AliDNS (China fallback)
+    - 119.29.29.29         # DNSPod (China fallback)
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+  fallback:
+    - https://dns.cloudflare.com/dns-query
+    - https://dns.google/dns-query
+  fallback-filter:
+    geoip: true
+    ipcidr:
+      - 240.0.0.0/4
+
+# ── Proxy Nodes (from PassWall config nodes) ──────────────────────
+proxies:
+  # Example 1: VMess+WS+TLS (most common)
+  - name: "KVM-Main"
+    type: vmess
+    server: kvm.example.com
+    port: 30717
+    uuid: <UUID_FROM_PASSWALL>
+    alterId: 0
+    cipher: auto
+    tls: true
+    servername: kvm.example.com
+    network: ws
+    ws-opts:
+      path: /<WS_PATH>
+      headers:
+        Host: kvm.example.com
+
+  # Example 2: VMess+WS+TLS via Cloudflare Tunnel
+  - name: "CF-Tunnel-Backup"
+    type: vmess
+    server: random-words.trycloudflare.com
+    port: 443
+    uuid: <UUID_FROM_PASSWALL>
+    alterId: 0
+    cipher: auto
+    tls: true
+    servername: random-words.trycloudflare.com
+    network: ws
+    ws-opts:
+      path: /<WS_PATH>
+      headers:
+        Host: random-words.trycloudflare.com
+
+  # Example 3: VMess+WS+TLS (second server)
+  - name: "HK-Backup"
+    type: vmess
+    server: hk.example.com
+    port: 443
+    uuid: <UUID_FROM_PASSWALL>
+    alterId: 0
+    cipher: auto
+    tls: true
+    servername: hk.example.com
+    network: ws
+    ws-opts:
+      path: /<WS_PATH>
+      headers:
+        Host: hk.example.com
+
+# ── Proxy Groups ───────────────────────────────────────────────────
+proxy-groups:
+  # Auto-select by latency
+  - name: "PROXY"
+    type: url-test
+    proxies:
+      - KVM-Main
+      - CF-Tunnel-Backup
+      - HK-Backup
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+    tolerance: 50
+    lazy: true
+
+  # Manual select (override auto)
+  - name: "Manual-Select"
+    type: select
+    proxies:
+      - PROXY
+      - KVM-Main
+      - CF-Tunnel-Backup
+      - HK-Backup
+      - DIRECT
+      - REJECT
+
+  - name: "Bypass"
+    type: select
+    proxies:
+      - DIRECT
+
+  - name: "AdBlock"
+    type: select
+    proxies:
+      - REJECT
+      - DIRECT
+
+# ── Rules (adapt from PassWall shunt config) ───────────────────────
+rules:
+  # AI services
+  - GEOSITE,openai,Manual-Select
+
+  # Streaming
+  - GEOSITE,netflix,Manual-Select
+
+  # Games
+  - GEOSITE,category-games@!cn,Manual-Select
+
+  # Google auth (from PassWall proxy_host list)
+  - DOMAIN-SUFFIX,accounts.google.com,Manual-Select
+  - DOMAIN-SUFFIX,oauth2.googleapis.com,Manual-Select
+  - DOMAIN-SUFFIX,www.googleapis.com,Manual-Select
+  - DOMAIN-SUFFIX,play.google.com,Manual-Select
+  - DOMAIN-SUFFIX,ssl.gstatic.com,Manual-Select
+  - DOMAIN-SUFFIX,www.gstatic.com,Manual-Select
+
+  # Telegram
+  - IP-CIDR,149.154.160.0/20,Manual-Select
+  - IP-CIDR,91.108.4.0/22,Manual-Select
+  - IP-CIDR,91.108.56.0/24,Manual-Select
+
+  # Public DNS
+  - IP-CIDR,8.8.8.8/32,Manual-Select
+  - IP-CIDR,8.8.4.4/32,Manual-Select
+  - IP-CIDR,1.1.1.1/32,Manual-Select
+
+  # Proxy non-China domains (equivalent to PassWall's Proxy shunt)
+  - GEOSITE,geolocation-!cn,Manual-Select
+
+  # China domains (equivalent to PassWall's Direct shunt)
+  - GEOSITE,category-games@cn,Bypass
+  - GEOSITE,cn,Bypass
+
+  # Custom domains (bypass proxy)
+  - DOMAIN-SUFFIX,example-internal.com,Bypass
+  - DOMAIN-SUFFIX,yourdomain.com,Bypass
+
+  # China IPs
+  - GEOIP,CN,Bypass
+
+  # Private IPs
+  - IP-CIDR,192.168.0.0/16,Bypass
+  - IP-CIDR,10.0.0.0/8,Bypass
+  - IP-CIDR,172.16.0.0/12,Bypass
+  - IP-CIDR,127.0.0.0/8,Bypass
+  - IP-CIDR,100.64.0.0/10,Bypass
+
+  # Ads (from PassWall AD shunt)
+  - GEOSITE,category-ads-all,AdBlock
+
+  # Default: proxy everything else
+  - MATCH,PROXY

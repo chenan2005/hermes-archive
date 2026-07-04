@@ -24,13 +24,19 @@ category: devops
 | 设备资产 | [assets](references/assets.md) | 全设备清单(IP/MAC/SSH)/网络拓扑/DNS链路/WOL/新设备上架 |
 | Hermes 配置 | [system-hermes](references/system-hermes.md) | token优化/custom provider/memory provider/升级/API余额 |
 | 归档/Android/脚本 | [system](references/system.md) | 会话归档系统/Android Termux/远程脚本/Webhook |
-| Kanban 工作流 | [kanban](references/kanban.md) | 编排者 playbook/worker 指南 |
 
 ## 使用方式
 
 1. 从导航表找到对应域 → `skill_view(name='home-ops', file_path='references/xxx.md')`
 2. 每个 reference 自带目录，agent 按需阅读具体章节
 3. 跨域问题（如代理+网络排坑）→ 加载多个 reference
+
+## 维护规范
+
+- **reference 上限 ~80K**（约 20K tokens），超过则按子域拆分为独立文件
+- **新增内容** → 找到对应 reference 用 `skill_manage patch` 补充，或在 `references/` 下新建文件 + 更新上方导航表
+- **不新建 devops/ 下的独立 skill**（已全部合并入本 hub，SOUL.md Skill Git Sync 有对应规则）
+- **变更历史** → [consolidation-2026-07-04](references/consolidation-2026-07-04.md)
 
 ## 架构说明
 

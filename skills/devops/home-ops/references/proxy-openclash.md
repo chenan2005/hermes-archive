@@ -54,7 +54,7 @@ dns:
 | Seoul-Cloudflare | VMess+WS+TLS | trycloudflare.com:443 | CF Tunnel 隧道，域名随时变 |
 | VMISS-HK | VMess+WS+TLS | vmiss.bernarty.xyz:443 | 香港 VPS |
 | Alibaba-Seoul-VLESS-Reality | VLESS+Reality | 43.108.41.245:40002 | 阿里云首尔，伪装 bing.com |
-| minipc-socks | SOCKS5 | 192.168.71.21:10808 | minipc 上 v2rayN (xray) 的 SOCKS5 入站端口 |
+| minipc-socks | SOCKS5 | 192.168.71.21:10808 | minipc 上 xray 核心独立运行的 VLESS+Reality（Alibaba-Seoul 首尔），`C:\Users\chen_\v2rayN\guiConfigs\5g-seoul.json` |
 
 ## 代理组
 

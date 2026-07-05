@@ -42,8 +42,9 @@ git rebase main
 # 5. 恢复未提交改动
 git stash pop
 
-# 6. 抑制版本检查提示，重启 Hermes 生效
+# 6. 清除所有 profile 的版本检查缓存，重启 Hermes 生效
 rm -f ~/.hermes/.update_check
+find ~/.hermes/profiles -maxdepth 2 -name ".update_check" -delete 2>/dev/null
 echo "更新完成。退出 Hermes 重进即可使用新版本。"
 ```
 

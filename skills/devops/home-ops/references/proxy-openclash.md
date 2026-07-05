@@ -1,5 +1,6 @@
 ## 目录
 
+- [当前运行配置](#current-config)
 - [openclash-api-workflow](#openclash-api-workflow)
 - [openclash-debug](#openclash-debug)
 - [openclash-passwall-troubleshooting](#openclash-passwall-troubleshooting)
@@ -7,7 +8,125 @@
 ---
 
 
+# 当前运行配置 (Current Configuration)
 
+> 以下为 OpenWrt 上实际运行的 OpenClash 配置。两份配置文件 (`/etc/openclash/config/config.yaml` 和 `/etc/openclash/config.yaml`) 内容一致（均为 179 行）。**此节是实际配置的事实记录，其余章节是通用操作指南/排坑记录。**
+
+## DNS
+
+```yaml
+dns:
+  enable: true
+  listen: 0.0.0.0:7874
+  ipv6: false
+  default-nameserver:
+  - 192.168.37.1
+  - 223.5.5.5
+  - 119.29.29.29
+  enhanced-mode: redir-host
+  nameserver:
+  - 223.5.5.5
+  - 119.29.29.29
+  - https://doh.pub/dns-query
+  - https://dns.alidns.com/dns-query
+  - tls://dns.pub
+  fallback:
+  - 223.5.5.5
+  - 119.29.29.29
+  - https://dns.cloudflare.com/dns-query
+  - https://dns.google/dns-query
+  - tls://1.1.1.1
+  respect-rules: true
+  proxy-server-nameserver:
+  - 223.5.5.5
+  - 119.29.29.29
+```
+
+- **enhanced-mode: redir-host** — mihomo 故障时国内流量不受影响（返回真实 IP，不用假 IP）
+- `respect-rules: true` — DNS 查询遵循路由规则，国内走直连 DNS，国外走 proxy-server-nameserver
+- `proxy-server-nameserver` 也用阿里 DNS / DNSPod（非 DoH），确保节点全挂时 DNS 仍可用
+
+## 代理节点
+
+| 节点 | 类型 | 地址 | 说明 |
+|------|------|------|------|
+| 233boy-KVM | VMess+WS+TLS | kvm.bernarty.xyz:30717 | KVM 独立服务器 |
+| Seoul-Cloudflare | VMess+WS+TLS | trycloudflare.com:443 | CF Tunnel 隧道，域名随时变 |
+| VMISS-HK | VMess+WS+TLS | vmiss.bernarty.xyz:443 | 香港 VPS |
+| Alibaba-Seoul-VLESS-Reality | VLESS+Reality | 43.108.41.245:40002 | 阿里云首尔，伪装 bing.com |
+| lenovo-socks | SOCKS5 | 192.168.71.24:10880 | 本机 minipc sing-box 混合端口 |
+
+## 代理组
+
+```yaml
+proxy-groups:
+- name: PROXY           # 主代理组 — 手动选择节点
+  type: select
+  proxies: [Alibaba-Seoul-VLESS-Reality, 233boy-KVM, Seoul-Cloudflare, VMISS-HK, AUTO, lenovo-socks]
+
+- name: Google-Auth     # Google 认证专用 — 独立于 PROXY 选节点
+  type: select
+  proxies: [Seoul-Cloudflare, VMISS-HK, 233boy-KVM, Alibaba-Seoul-VLESS-Reality]
+
+- name: Manual-Select   # openai/netflix/youtube 分流开关（PROXY 或 DIRECT）
+  type: select
+  proxies: [PROXY, DIRECT]
+
+- name: AUTO            # 自动选延迟最低节点（每 5 分钟测一次）
+  type: url-test
+  url: https://cp.cloudflare.com/generate_204
+  interval: 300
+  tolerance: 100
+  proxies: [233boy-KVM, Seoul-Cloudflare, VMISS-HK, Alibaba-Seoul-VLESS-Reality]
+```
+
+## 路由规则
+
+```yaml
+rules:
+# 1. Cloudflare Tunnel 直连（避免代理循环）
+- DOMAIN-SUFFIX,trycloudflare.com,DIRECT
+
+# 2. Google 认证域名 → Google-Auth 组（19 条）
+- DOMAIN-SUFFIX,accounts.google.com,Google-Auth
+- DOMAIN-SUFFIX,accounts.google.co.kr,Google-Auth
+- DOMAIN-SUFFIX,accounts.google.com.hk,Google-Auth
+- DOMAIN-SUFFIX,accounts.google.com.sg,Google-Auth
+- DOMAIN-SUFFIX,accounts.youtube.com,Google-Auth
+- DOMAIN-SUFFIX,oauth2.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,www.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,openidconnect.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,securetoken.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,identitytoolkit.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,android.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,clientauth.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,people.googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,content-googleapis.com,Google-Auth
+- DOMAIN-SUFFIX,ssl.gstatic.com,Google-Auth
+- DOMAIN-SUFFIX,www.gstatic.com,Google-Auth
+- DOMAIN-SUFFIX,apis.google.com,Google-Auth
+- DOMAIN-SUFFIX,play.google.com,Google-Auth
+- DOMAIN-SUFFIX,myaccount.google.com,Google-Auth
+
+# 3. 特定服务 → Manual-Select（可切换 PROXY/DIRECT）
+- GEOSITE,openai,Manual-Select
+- GEOSITE,netflix,Manual-Select
+- GEOSITE,youtube,Manual-Select
+
+# 4. 广告拦截
+- GEOSITE,category-ads-all,REJECT
+
+# 5. 中国流量直连
+- GEOSITE,cn,DIRECT
+- GEOIP,cn,DIRECT
+
+# 6. 其余全部走代理
+- MATCH,PROXY
+```
+
+**分流逻辑总结**：cn 直连 + 非 cn 走 PROXY + Google 认证独立分组 + openai/netflix/youtube 可选开关。
+
+# openclash-api-workflow
 # openclash-api-workflow
 
 # openclash-api-workflow

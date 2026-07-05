@@ -54,7 +54,7 @@ dns:
 | Seoul-Cloudflare | VMess+WS+TLS | trycloudflare.com:443 | CF Tunnel 隧道，域名随时变 |
 | VMISS-HK | VMess+WS+TLS | vmiss.bernarty.xyz:443 | 香港 VPS |
 | Alibaba-Seoul-VLESS-Reality | VLESS+Reality | 43.108.41.245:40002 | 阿里云首尔，伪装 bing.com |
-| lenovo-socks | SOCKS5 | 192.168.71.24:10880 | 本机 minipc sing-box 混合端口 |
+| minipc-socks | SOCKS5 | 192.168.71.21:10808 | 本机 minipc 上 Clash Verge 混合端口 |
 
 ## 代理组
 

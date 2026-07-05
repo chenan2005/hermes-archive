@@ -62,7 +62,7 @@ dns:
 proxy-groups:
 - name: PROXY           # 主代理组 — 手动选择节点
   type: select
-  proxies: [Alibaba-Seoul-VLESS-Reality, 233boy-KVM, Seoul-Cloudflare, VMISS-HK, AUTO, lenovo-socks]
+  proxies: [Alibaba-Seoul-VLESS-Reality, 233boy-KVM, Seoul-Cloudflare, VMISS-HK, AUTO, minipc-socks]
 
 - name: Google-Auth     # Google 认证专用 — 独立于 PROXY 选节点
   type: select

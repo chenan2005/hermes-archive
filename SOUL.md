@@ -36,6 +36,7 @@
 - **排查优先上网搜索**，不反复本地试错
 - **复杂排障后主动问**：是否要把排查方案存为 skill
 - 浏览器工具优先级：`browser_console` / `browser_snap`（根据场景选择） > `browser_vision`
+- **vision_analyze 调用规范**：question 参数必须携带上下文（前1-2句交代当前任务/文章主题/场景背景），不写裸的"描述这张图片"。帮助视觉模型理解图片背景，提高分析准确度
 
 # Knowledge Organization
 - Memory 只记大方向和引导性信息，不存细则

@@ -1176,13 +1176,24 @@ nft list ruleset | grep "redirect to :7892" | wc -l
 
 **Why ALL sites fail (not just foreign):** In fake-IP mode, even domestic domains get fake-IPs initially. Only AFTER mihomo processes the traffic does it compare the domain against geo-site rules (CN → DIRECT, non-CN → PROXY). Without TPROXY rules, no traffic ever reaches mihomo to make that decision — so both domestic and foreign sites get stuck at "trying to reach 198.18.x.x".
 
-### 11. 常见配置路径问题
+### 11. 配置文件关系与修改最佳实践
 
 OpenClash 使用两份配置：
-- **源码配置**: `/etc/openclash/config/config.yaml`（用户上传/订阅的）
-- **活动配置**: `/etc/openclash/config.yaml`（OpenClash Step 3 修改后的副本，核心实际使用）
 
-不同步时：`cp /etc/openclash/config/config.yaml /etc/openclash/config.yaml`
+| 文件 | 作用 | 
+|------|------|
+| `/etc/openclash/config/config.yaml` | 源码配置（用户上传/订阅的原始文件） |
+| `/etc/openclash/config.yaml` | 活动配置（mihomo 实际读取，由 `yml_change.sh` 生成） |
+
+重启 OpenClash 时 `yml_change.sh` 会从 `config/config.yaml` 重新生成 `config.yaml`。
+
+**标准做法（推荐）**：修改 `config/config.yaml` → `/etc/init.d/openclash restart`
+
+这是最直接可靠的方式。改源码、重启，配置持久化且不会被覆盖。适用于加规则、改节点名、调分组等所有日常变更。
+
+> 如果只想临时测试一个改动且不想重启，可以直接改 `config.yaml` 后用 API 热重载：
+> `curl -s -X PUT http://127.0.0.1:9090/configs -H "$HDR" -H "Content-Type: application/json" -d '{"path":"/etc/openclash/config.yaml"}'`
+> 但这不会持久化——重启后会被 `config/config.yaml` 覆盖。仅用于快速验证。
 
 ### 9. OpenClash Init Script 导致启动循环
 

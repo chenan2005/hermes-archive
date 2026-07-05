@@ -245,7 +245,7 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | SSH | key: ~/.ssh/id_ed25519, alias: `ssh minipc` |
 | 备注 | Hyper-V 单 ImmortalWrt VM（原双 OpenWrt VM，旧已退役）；WinRM (5985, Session 1) 可调 WiFi 无线电开关（见下方#带外管理通道） |
 | **网络架构** | **有线（Realtek 2.5GbE）= 默认上网通道，走到网关 71.9（OpenClash），metric ~25。WiFi（WLAN）= 连 CMCC-C46N-5G（家庭移动宽带，192.168.1.2/24），metric 5000 不干扰默认路由。** |
-| **代理** | ⚠️ **已停用**（2026-07-05）— xray 进程已终止 + Xray-SOCKS5 计划任务已删除。待通过 v2rayN GUI 手动配置。保留配置文件: `C:\Users\chen_\v2rayN\guiConfigs\5g-seoul.json`（VLESS+Reality → 43.108.41.245:40002，SOCKS5 10808）。静态路由 `route -p add 43.108.41.245 → 192.168.1.1 metric 50` 仍有效。曾用 Xray v26.6.1（schtasks SYSTEM 管理，v2rayN v7.22.7 GUI 未用）、sing-box（8897/8890，已删）。 |
+| **代理** | **v2rayN**（最新版，支持 mihomo/sing-box/Xray 多核心），Xray 核心，SOCKS5 `0.0.0.0:10808`，绑定 WLAN 网口。静态路由 `route -p add 43.108.41.245 → 192.168.1.1 metric 50` 强制走 WiFi/移动宽带。曾用 Xray schtasks 独立进程（已删）、sing-box（8897/8890，已删）。 |
 
 ### 设备5: 腾讯云服务器
 

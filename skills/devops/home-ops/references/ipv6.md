@@ -59,16 +59,36 @@
 
 `nslookup` 的 2 秒超时不能反映实际浏览体验。只要 `Resolve-DnsName` 和浏览器正常，`nslookup timeout` 可以忽略。
 
-## 已知问题：LAN 设备 IPv6 WAN 转发
+## 本机 Linux IPv6 配置（NetworkManager + accept_ra）
 
-ImmortalWrt 当前 IPv6 默认路由使用 source-specific routing（`from 240e:389:a3a5:3f00::/64`），路由器自身可以出 IPv6，但 LAN 设备（37.x）的 IPv6 包转发到 WAN 时失败（`Network unreachable`）。表现为：
+本机 (71.24) 直连 OLT WiFi，Linux 不会像 Windows 那样自动接收 RA RDNSS 下发的电信 IPv6 DNS，但仍需 `accept_ra=2` 才能在 WiFi 接口上获得 IPv6 默认路由。
 
-- 路由器 `ping6 -I 240e:389:a3a5:3f00::1 2400:3200::1` → ✅
-- LAN 设备（9900K）`ping -6 2400:3200::1` → ❌
-- LAN IPv6 通信正常（9900K ↔ 路由器）
-- 不影响翻墙（OpenClash TPROXY 走 IPv4）
+**持久化（双层保险）**：
 
-**待解决**：需要排查 source-specific 路由的行为，或改用 NDP proxy 模式。
+```bash
+# 1. sysctl.d — 系统启动时
+echo "net.ipv6.conf.wlp1s0.accept_ra=2" | sudo tee /etc/sysctl.d/99-ipv6-ra.conf
+
+# 2. NetworkManager dispatcher — WiFi 重连时（关键！）
+#    nmcli con up 会导致 NM 重置 sysctl，dispatcher 自动恢复
+sudo tee /etc/NetworkManager/dispatcher.d/99-ipv6-ra << 'EOF' > /dev/null
+#!/bin/sh
+[ "$2" = "up" ] || exit 0
+sleep 1
+sysctl -w net.ipv6.conf."$1".accept_ra=2 >/dev/null 2>&1
+ip -6 route replace default via fe80::105:7cc9:26ef:316 dev "$1" metric 1024 >/dev/null 2>&1
+EOF
+sudo chmod +x /etc/NetworkManager/dispatcher.d/99-ipv6-ra
+```
+
+**为什么需要双层**：`nmcli con up` 重新激活连接时 NetworkManager 会重置接口 sysctl。仅 `/etc/sysctl.d/` 不够，dispatcher 在每次连接激活后重新应用。
+
+**验证**：
+```bash
+cat /proc/sys/net/ipv6/conf/wlp1s0/accept_ra  # → 2
+ip -6 route show default  # → via fe80::105:7cc9:26ef:316
+ping -6 www.baidu.com     # → 11ms
+```
 
 ## OpenWrt 24.10 ImmortalWrt IPv6 完整配置
 
@@ -188,6 +208,28 @@ chmod +x /etc/hotplug.d/dhcpv6/99-default-route
 
 ## ⚠️ OpenWrt 24.10 fw4 防火墙：IPv6 被阻断的根因
 
+这是 ImmortalWrt IPv6 不通的真正原因，非 Hyper-V 问题。
+
+### 诊断流程
+
+```bash
+# 1. 先排除 Hyper-V：启动同交换机的旧 OpenWrt 22.03 VM
+#    如果旧 VM 能拿 IPv6 → 不是 Hyper-V 问题，是防火墙
+# 2. 确认 fw4 未生成 IPv6 规则
+nft list chain inet fw4 input_wan | grep -E "ipv6|icmpv6|udp.*54[67]"
+#    空输出 → IPv6 全被 drop
+```
+
+### 为什么 fw4 没有 IPv6 规则
+
+OpenWrt 22.03→24.10 防火墙从 fw3 (iptables) 切换到 fw4 (nftables)。fw4 的 `input_wan` 链规则全部加了 `meta nfproto ipv4` 限制，IPv6 流量无任何放行规则，全部落到 `reject_from_wan`。
+
+具体被阻断：DHCPv6 服务器响应 (UDP 547→546)、ICMPv6 NDP (types 133-136)、所有 IPv6 入站。
+
+### 触发条件
+
+任何 ImmortalWrt 24.10 新部署（或 OpenWrt 22.03→24.10 升级），只要 WAN 侧需要 IPv6，都需要手动添加这两条防火墙规则。
+
 ## ⚠️ LAN 设备 IPv6 外网不通：路由表冲突
 
 **症状**: 路由器自身能 ping6 外网，LAN 设备能 ping6 路由器，但 LAN 设备无法 ping6 外网。
@@ -215,28 +257,6 @@ ip -6 route replace 240e:389:a3a5:3f00::/64 dev br-lan metric 128
 **持久化**: hotplug 脚本 `97-br-lan-route`（在 wan6 ifup 时执行）。
 
 **教训**: NDP proxy 不是根因。不需要 NAT66。跟防火墙无关。纯粹的路由表优先级问题。
-
-**这是 ImmortalWrt IPv6 不通的真正原因，非 Hyper-V 问题。**
-
-### 诊断流程
-
-```bash
-# 1. 先排除 Hyper-V：启动同交换机的旧 OpenWrt 22.03 VM
-#    如果旧 VM 能拿 IPv6 → 不是 Hyper-V 问题，是防火墙
-# 2. 确认 fw4 未生成 IPv6 规则
-nft list chain inet fw4 input_wan | grep -E "ipv6|icmpv6|udp.*54[67]"
-#    空输出 → IPv6 全被 drop
-```
-
-### 为什么 fw4 没有 IPv6 规则
-
-OpenWrt 22.03→24.10 防火墙从 fw3 (iptables) 切换到 fw4 (nftables)。fw4 的 `input_wan` 链规则全部加了 `meta nfproto ipv4` 限制，IPv6 流量无任何放行规则，全部落到 `reject_from_wan`。
-
-具体被阻断：DHCPv6 服务器响应 (UDP 547→546)、ICMPv6 NDP (types 133-136)、所有 IPv6 入站。
-
-### 触发条件
-
-任何 ImmortalWrt 24.10 新部署（或 OpenWrt 22.03→24.10 升级），只要 WAN 侧需要 IPv6，都需要手动添加这两条防火墙规则。
 
 ## 光猫管理页面访问
 

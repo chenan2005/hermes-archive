@@ -22,7 +22,7 @@ category: devops
 | 网络 — FRP/CF | [network-frp](references/network-frp.md) | FRP 内网穿透/Cloudflare Tunnel+CDN 加速 |
 | 网络 — WOL/WiFi | [network-wol](references/network-wol.md) | WOL 远程唤醒(Win+OpenWrt+BIOS)/minipc WiFi 切换 |
 | 路由器 | [openwrt](references/openwrt.md) | Hyper-V 部署 OpenWrt/ImmortalWrt/PassWall 分流/SNI路由 |
-| Windows 管理 | [windows](references/windows.md) | 代理客户端(Xray/sing-box)/SSH 崩溃恢复(WinRM+MD4) |
+| Windows 管理 | [windows](references/windows.md) | 代理客户端(Xray/sing-box)/SSH 崩溃恢复(WinRM+MD4)/本地LLM/PowerShell 引号策略(4-layer)/FreeRDP headless/WiFi Radio/Session 0，子参考: [PS EncCommand](references/ps-enc-bash-functions.md) [文件创建](references/windows-file-creation-via-ssh.md) [WiFi Radio](references/toggle-wifi-radio-ps1.md) |
 | 设备资产 | [assets](references/assets.md) | 全设备清单(IP/MAC/SSH)/网络拓扑/DNS链路/WOL/新设备上架 |
 | Android/脚本 | [system](references/system.md) | Android Termux/远程脚本执行 |
 | AI 工作站 | [ai-workstation](references/ai-workstation.md) | 9950x3d GPU监控/推理引擎选型/Linux迁移/llama-server配置 |
@@ -33,6 +33,8 @@ category: devops
 | 脚本 | 路径 | 说明 |
 |------|------|------|
 | gpu-mon | `scripts/gpu-mon.sh` | 查询 9950x3d GPU + llama-server 状态，支持 watch 模式 |
+| toggle-wifi-radio | `scripts/toggle-wifi-radio.ps1` | WinRT Radio API — 远程开关 Windows WiFi 软开关（需 Session 1） |
+| enable-wifi-startup | `scripts/enable-wifi-startup.ps1` | Windows WiFi 启动脚本模板 — 通过 Run key 部署，开机自启 |
 | fix-ipv6-dns | `scripts/fix-ipv6-dns.ps1` | Windows IPv6 DNS 污染修复：DisabledComponents=0x20 + IPv4 DNS 指向路由器 |
 | network-ctrl | `~/network-ops/network-ctrl` | OpenClash 配置管理：pull-from-router / push-to-router + restart。含 git 仓库 `~/network-ops/` |
 

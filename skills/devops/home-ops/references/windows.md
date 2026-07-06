@@ -1,6 +1,7 @@
 ## 目录
 
 - [# windows-proxy-client](##-windows-proxy-client)
+- [# windows-local-llm](##-windows-local-llm)
 - [# winrm-ssh-recovery](##-winrm-ssh-recovery)
 
 ---
@@ -676,9 +677,41 @@ Value: CertificateRevocation = 0 (DWORD)
 (Invoke-WebRequest -Uri "https://target.url" -Proxy "socks5://127.0.0.1:8897").StatusCode
 ```
 
-### 7e. PowerShell quoting through SSH
+### 7e. PowerShell quoting through SSH — the 4-layer model
 
-When piping PowerShell commands through SSH, triple nesting (bash → cmd → powershell) causes quoting explosions. See §5 (PowerShell 脚本通过 SSH 执行) for the correct patterns.
+Every SSH command to Windows passes through four parsers, each interpreting special characters:
+
+```
+第1层: Linux bash    →  解释 $var, |, >, 引号
+第2层: SSH 传输      →  将参数字符串传给远程 sshd
+第3层: Windows cmd   →  sshd 默认启动 cmd.exe，再次解释 &, >, %, ^
+第4层: PowerShell    →  -Command 参数再次解析 $, @, {}, 引号
+```
+
+If the goal is to create a file with special characters, there's a **fifth layer** — the file content itself.
+
+**Quick failure reference** (creating .bat files on Windows over SSH):
+
+| Approach | Why it failed |
+|----------|--------------|
+| PowerShell `@\"...\"@` via SSH | `@` misinterpreted by outer shell → `ParserError` |
+| cmd `(...)` block + `>` redirect | Block doesn't accumulate multi-line echo output |
+| base64 + `[Convert]::FromBase64String` | `$env:USERPROFILE` expanded by bash in double-quotes |
+| SCP direct transfer | First failed attempt creates a 0-byte file that Windows locks |
+
+**Strategies that work:**
+
+1. **PowerShell `-EncodedCommand` (base64)** — single token, zero escaping. See `references/ps-enc-bash-functions.md` for bash-side helper functions (`ps_enc`, `ps_run`).
+
+2. **Upload .ps1 via SCP, then `-File` execute** — eliminates all quoting problems. Best for complex scripts.
+
+3. **Python generator pattern** — write a Python script locally, `cat >` transfer to remote Temp, execute. Python's `open().write()` bypasses all shell parsers. See `references/windows-file-creation-via-ssh.md`.
+
+4. **Simple commands with `& { }` wrapper** — works for single pipelines:
+   ```bash
+   ssh target 'powershell -NoProfile -Command "& { Get-Process | Sort CPU -Descending | Select -First 5 }"'
+   ```
+   Does NOT work for loops, variables, multi-statement logic.
 
 ### 7f. 多个 WLAN 接口（Wi-Fi 7 HBS）
 
@@ -712,6 +745,64 @@ ssh minipc powershell -Command "netsh wlan connect name='SSID-NAME'"
 # 验证状态
 ssh minipc powershell -Command "netsh wlan show interfaces | Select-String 'SSID|State'"
 ```
+
+### 7i. FreeRDP Headless — WiFi Radio Control from Session 1
+
+Unlike SSH (Session 0), **RDP connects to Session 1**, where the WinRT Radio API can toggle WiFi radio. FreeRDP with Xvfb enables headless radio control from a Linux jumpbox.
+
+> **When to use:** SSH is down (kex reset) but RDP port 3389 is open. Or WiFi radio is soft-off and Session 0 cannot toggle it.
+
+#### Setup
+
+```bash
+sudo apt-get install -y freerdp2-x11 xvfb
+```
+
+#### Toggle WiFi Radio ON
+
+```bash
+# 1. Deploy the script (SCP or RDP app-cmd)
+scp toggle-wifi-radio.ps1 target:'C:\Users\chen_\toggle-wifi-radio.ps1'
+
+# 2. Headless RDP execute
+Xvfb :99 -screen 0 1024x768x16 &
+export DISPLAY=:99
+xfreerdp /v:<host>:<port> /u:<user> /p:"$(cat /tmp/tmp-passwd)" \
+  /cert-ignore /sec:nla /network:auto /bpp:16 \
+  /app:"powershell.exe" /app-icon \
+  /app-cmd:"-NoProfile -ExecutionPolicy Bypass -File C:\Users\chen_\toggle-wifi-radio.ps1"
+```
+
+#### Preferred: Upload + Execute (avoids quoting hell)
+
+```bash
+# Upload once → execute via RDP with -File flag
+xfreerdp ... /app:"powershell.exe" /app-cmd:"-NoProfile -File C:\Users\<user>\Desktop\toggle-wifi.ps1"
+```
+
+#### Simpler: netsh wlan connect (radio already on)
+
+```bash
+xfreerdp /v:<target>:<port> /u:<user> /p:"$(cat /tmp/tmp-passwd)" \
+  /cert-ignore /sec:nla /network:auto /bpp:16 \
+  /app:"cmd.exe" /app-icon \
+  /app-cmd:"/c netsh wlan connect name=MyWiFiSSID"
+```
+
+#### Port check — confirm machine alive before RDP
+
+```bash
+for port in 22 3389 5985 445 135; do
+  nc -zv -w 3 <target> $port 2>&1
+done
+# 22 open but kex reset → sshd hung, RDP available
+# 3389 open → RDP available for recovery
+```
+
+See `references/toggle-wifi-radio-ps1.md` for the WinRT Radio API script.
+See `scripts/toggle-wifi-radio.ps1` for the deployable script.
+
+> **⚠️ Danger: Do NOT use `schtasks /it` (interactive mode) from SSH.** Windows Defender ASR detects this as lateral movement (Session 0 → Session 1 injection) and quarantines `sshd-session.exe`, breaking SSH entirely. Recovery requires WinRM. Always use WinRM or RDP for Session 1 operations.
 
 ## 8. Xray 部署（替代 v2rayN GUI）
 
@@ -837,6 +928,66 @@ route -p add 43.108.41.245 mask 255.255.255.255 192.168.1.1 metric 50
 
 ## 9. 运维命令
 
+### v2rayN GUI 与 xray 核心脱钩陷阱
+
+**现象**：打开 v2rayN GUI 界面，看不到任何节点配置，但 `netstat -ano | findstr 10808` 显示 xray.exe 在监听。用 SOCKS5 测试也能通。
+
+**根因**：v2rayN 只"看见"它自己启动的 xray 实例。如果 xray 是通过其他方式启动的（schtasks SYSTEM 账户、命令行直接 `xray.exe run -c`、或其他脚本），v2rayN GUI 完全不知道它的存在。
+
+**诊断**：
+```powershell
+# 1. 查谁在监听代理端口
+netstat -ano | findstr LISTENING | findstr 10808
+# → 记下 PID
+
+# 2. 查该进程的完整命令行和父进程
+Get-CimInstance Win32_Process -Filter "ProcessId=<PID>" | Select-Object ParentProcessId,Name,CommandLine
+
+# 3. 如果父进程是 svchost.exe (Schedule 服务) → 是 schtasks 启动的
+#    如果父进程是 v2rayN.exe → GUI 管理的
+Get-CimInstance Win32_Process -Filter "ProcessId=<ParentPID>" | Select-Object Name
+```
+
+**清理独立 xray 实例**：
+```powershell
+# 停进程
+Stop-Process -Id <PID> -Force
+# 删计划任务（如果存在）
+schtasks /delete /tn Xray-SOCKS5 /f
+```
+
+**教训**：管理 xray/v2rayN 时，**先看进程再看 GUI**。`netstat -ano | findstr <port>` 是唯一可靠的真相来源。
+
+### VLESS 分享链接生成
+
+从 Xray/sing-box JSON 配置生成 vless:// 链接（用于 v2rayN 导入）：
+
+```python
+import urllib.parse
+
+uuid = 'a5fa1889-1316-4115-a866-96c8f30523ef'
+host = '43.108.41.245'
+port = 40002
+params = {
+    'encryption': 'none',
+    'security': 'reality',
+    'sni': 'www.bing.com',       # Reality serverName
+    'fp': 'chrome',              # fingerprint
+    'pbk': '<public-key>',       # Reality publicKey
+    'sid': '<short-id>',         # Reality shortId
+    'type': 'tcp',
+}
+name = '节点名称'
+
+qs = '&'.join(f'{k}={v}' for k, v in params.items())
+link = f'vless://{uuid}@{host}:{port}?{qs}#{urllib.parse.quote(name)}'
+print(link)
+```
+
+v2rayN 导入方式：服务器 → 从剪贴板导入 → 粘贴链接。或把链接写入 `.txt` 文件拖进 v2rayN。
+
+## 9. 运维命令
+
 | 操作 | SSH 命令 |
 |---|---|
 | 启动 (Xray) | `ssh minipc 'schtasks /run /tn Xray-SOCKS5'` |
@@ -856,6 +1007,125 @@ route -p add 43.108.41.245 mask 255.255.255.255 192.168.1.1 metric 50
 | 查日志 | `ssh minipc 'powershell -Command "Get-Content \"C:\ProgramData\sing-box\sing-box.log\" -Tail 20"'` |
 | 校验配置 | `ssh minipc '\"C:\ProgramData\sing-box\sing-box.exe\" check -c \"C:\ProgramData\sing-box\config.json\"'` |
 | 更新配置 | scp 新 config.json + .srs 文件到目标目录，然后 kill+restart |
+
+# windows-local-llm
+
+# Windows Local LLM (llama.cpp) Management
+
+## Quick reference: start/stop script pattern
+
+Two batch scripts on Desktop for manual control:
+
+**qwen-start.bat** — starts llama-server, shows live output:
+```batch
+@echo off
+set MODEL=C:\llama\models\Qwen3.6-27B-Q4_K_M.gguf
+set SLOTS=C:\llama\slots
+
+if not exist "%MODEL%" (
+    echo [ERROR] Model not found: %MODEL%
+    pause
+    exit /b 1
+)
+
+if not exist "%SLOTS%" mkdir "%SLOTS%"
+
+echo [%date% %time%] Starting llama-server...
+echo.
+title Qwen3.6-27B Server
+
+C:\llama\llama-server.exe ^
+    -m "%MODEL%" ^
+    -c 262144 ^
+    -ctk q8_0 -ctv q8_0 ^
+    -ngl 99 ^
+    --host 0.0.0.0 --port 8080 ^
+    -t 16 ^
+    -b 512 ^
+    --n-predict 32768 ^
+    --slot-save-path "%SLOTS%"
+
+echo.
+echo [%date% %time%] Server exited with code %ERRORLEVEL%
+pause
+```
+
+Key parameters (2026-07-05):
+- `--n-predict 32768` — output cap (was `-1` unlimited)
+- `--slot-save-path C:\llama\slots` — slot save/restore API
+- No `> server.log 2>&1` — output visible in console
+- `kv_unified = true` (auto) — 4 slots share one KV cache
+
+**qwen-stop.bat** — kills the server:
+```batch
+@echo off
+echo Stopping llama-server...
+taskkill /F /IM llama-server.exe >nul 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo llama-server stopped successfully.
+) else (
+    echo llama-server was not running.
+)
+pause
+```
+
+## Pitfall: unsupported KV cache types
+
+`-ctk` / `-ctv` only accept these values:
+
+```
+f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
+```
+
+**`q6_k` is NOT supported** (unlike model quantization levels). Using it causes:
+
+```
+error while handling argument "-ctk": Unsupported cache type: q6_k
+```
+
+The server exits immediately with code 1. Fix: use `q8_0` instead (good quality for Q4_K_M models on RTX 5090 32GB, ~27.8GB VRAM used).
+
+## Checking for auto-start scheduled tasks
+
+User does NOT want local models auto-launching — manual control only. Check with:
+
+```cmd
+schtasks /query /fo LIST /v | findstr /i "llama qwen server model"
+```
+
+On Chinese Windows, pipe through `chcp 65001` first to avoid GBK garbling:
+
+```cmd
+chcp 65001 >nul & schtasks /query /tn "\LlamaServer" /fo LIST /v
+```
+
+Key fields to inspect:
+- `Scheduled Task State: Enabled` → disable or delete if auto-start unwanted
+- `Task To Run` → what executable it launches
+- `Schedule Type` / `Start Time` / `Start Date` → when it triggers
+
+To disable: `schtasks /change /tn "\LlamaServer" /disable`
+To delete: `schtasks /delete /tn "\LlamaServer" /f`
+
+## Remote batch script editing via SSH
+
+When editing `.bat` files on Windows through SSH, Python one-liners may fail silently (encoding mismatch between SSH transport and NTFS). Use PowerShell's native cmdlet instead:
+
+```bash
+# Works reliably — PowerShell handles the file encoding correctly
+ssh 9950x3d powershell -Command "(Get-Content 'C:\Users\chen_\Desktop\qwen-start.bat') -replace 'OLD','NEW' | Set-Content 'C:\Users\chen_\Desktop\qwen-start.bat'"
+
+# Verify with type
+ssh 9950x3d "type C:\Users\chen_\Desktop\qwen-start.bat"
+```
+
+## Reading logs remotely
+
+```bash
+ssh 9950x3d "type C:\llama\server.log"
+```
+
+The log captures both stdout and stderr (`> server.log 2>&1`). On startup failure, the error message is the last few lines of this file.
 
 # winrm-ssh-recovery
 

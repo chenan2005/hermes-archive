@@ -26,8 +26,9 @@ category: devops
 | 设备资产 | [assets](references/assets.md) | 全设备清单(IP/MAC/SSH)/网络拓扑/DNS链路/WOL/新设备上架 |
 | Android/脚本 | [system](references/system.md) | Android Termux/远程脚本执行 |
 | AI 工作站 | [ai-workstation](references/ai-workstation.md) | 9950x3d GPU监控/推理引擎选型/Linux迁移/llama-server配置 |
-| IPv6 | [ipv6](references/ipv6.md) | OpenWrt IPv6 relay配置/Hyper-V IPv6阻断排坑/光猫管理页面SSH隧道/电信IPv6行为 |
-
+| IPv6 | [ipv6](references/ipv6.md) | 全网 IPv6：fw4/路由表冲突/NDP proxy/Windows DNS 0x20/Linux NM dispatcher/37vs71网段差异 |
+| DHCP | [dhcp-static-leases](references/dhcp-static-leases.md) | 37 网段 DHCP 静态绑定：添加/修改/检查 MAC/本机 hosts 同步 |
+| 路由器 | [openwrt](references/openwrt.md) | OpenWrt 通用配置：设备维护/固件升级/系统诊断/ping
 ## 脚本
 
 | 脚本 | 路径 | 说明 |
@@ -36,6 +37,7 @@ category: devops
 | toggle-wifi-radio | `scripts/toggle-wifi-radio.ps1` | WinRT Radio API — 远程开关 Windows WiFi 软开关（需 Session 1） |
 | enable-wifi-startup | `scripts/enable-wifi-startup.ps1` | Windows WiFi 启动脚本模板 — 通过 Run key 部署，开机自启 |
 | fix-ipv6-dns | `scripts/fix-ipv6-dns.ps1` | Windows IPv6 DNS 污染修复：DisabledComponents=0x20 + IPv4 DNS 指向路由器 |
+| dhcp-manage | `scripts/dhcp-manage.sh` | ImmortalWrt DHCP 静态绑定管理：list/add/del/force（部署于 `/root/.local/bin/`）|
 | network-ctrl | `~/network-ops/network-ctrl` | OpenClash 配置管理：pull-from-router / push-to-router + restart。含 git 仓库 `~/network-ops/` |
 
 ## 使用方式

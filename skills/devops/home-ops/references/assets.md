@@ -537,6 +537,31 @@ uci commit dhcp
 
 **Pitfall**: OpenWrt 的 ash 不支持 `/dev/tcp` 或 `seq`。端口扫描用 `nc -z` 或 `curl`。删除 host 必须从后往前删索引。添加完成后必须 `uci commit dhcp && /etc/init.d/dnsmasq reload` 才能生效。
 
+### ⚠️ Pitfall: 改 DHCP 静态 IP 后 Android 不生效
+
+**症状**：修改了 `dhcp-host` 的 IP 绑定（如 magicpad 从 `.108` 改为 `.177`），但设备重连 WiFi 后仍是旧 IP。dnsmasq 日志显示：
+```
+DHCPOFFER(br-lan) 192.168.37.108 80:2a:f6:47:91:78
+DHCPACK(br-lan) 192.168.37.108 80:2a:f6:47:91:78 magicpad
+not giving name magicpad to the DHCP lease of 192.168.37.108
+because the name exists in config with address 192.168.37.177
+```
+
+**根因**：Android 断开 WiFi 后**记住了上次的 IP**，重连时发 `DHCPREQUEST`（指名要旧 IP）而非 `DHCPDISCOVER`。dnsmasq 即使有 `dhcp-host` 静态绑定，对显式 REQUEST 的 IP（在池内且未被其他设备占用）仍会放行。
+
+**诊断**：
+```bash
+# 看 DHCP 日志，区分 DISCOVER vs REQUEST
+logread | grep dnsmasq-dhcp | tail -20
+```
+
+**修复**：
+1. 删除旧租约：`sed -i "/MAC地址/d" /tmp/dhcp.leases`
+2. 在设备上**忘记 WiFi 网络**（不是断开，是"忘记"）
+3. 重新连接 → 设备发 `DHCPDISCOVER` → dnsmasq 按 `dhcp-host` 分配正确 IP
+
+**注意**：如果设备之前就在正确 IP 上（如 realme 一直在 `.205`），即使 REQUEST 也没问题——因为请求的 IP 和 static 一致。只有**改了 IP** 才需要忘记网络。
+
 ## 新设备上架流程
 
 ### Template: WiFi switch with auto-fallback

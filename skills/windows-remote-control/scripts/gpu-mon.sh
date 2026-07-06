@@ -1,0 +1,51 @@
+#!/bin/bash
+# 查询 9950x3d GPU + llama-server 状态
+# 用法：gpu-mon         单次查询
+#       gpu-mon -w      每秒持续监控（Ctrl-C 停止）
+
+set -euo pipefail
+
+TARGET="${GPU_MON_TARGET:-9950x3d}"
+
+fetch_one() {
+    local gpu cpu llama
+
+    gpu=$(ssh "$TARGET" \
+        'nvidia-smi --query-gpu=temperature.gpu,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,power.limit,clocks.sm --format=csv,noheader' \
+        2>/dev/null) || { echo "[$TARGET] SSH 连接失败"; return 1; }
+
+    llama=$(ssh "$TARGET" \
+        "powershell -NoProfile -Command \"\$p=Get-Process llama-server -ErrorAction SilentlyContinue; if(\$p){ Write-Output \\\"PID=\$(\$p.Id) CPU=\$([math]::Round(\$p.CPU,1))s WS=\$([math]::Round(\$p.WorkingSet64/1MB))MB\\\" } else { Write-Output 'NOT RUNNING' }\"" \
+        2>/dev/null) || llama="?"
+
+    IFS=',' read -r temp gpu_util mem_util vram_used vram_total power power_limit sm_clk <<< "$gpu"
+    temp=$(echo "$temp" | xargs)
+    gpu_util=$(echo "$gpu_util" | xargs)
+    mem_util=$(echo "$mem_util" | xargs)
+    vram_used_mb=$(echo "$vram_used" | sed 's/[^0-9]//g')
+    vram_total_mb=$(echo "$vram_total" | sed 's/[^0-9]//g')
+    power_w=$(echo "$power" | sed 's/[^0-9.]//g')
+    power_limit_w=$(echo "$power_limit" | sed 's/[^0-9.]//g')
+    sm_clk=$(echo "$sm_clk" | xargs)
+
+    local vram_pct=$(( vram_used_mb * 100 / vram_total_mb ))
+
+    printf "GPU: %s°C | %s util | %s mem-util | VRAM %s/%sMB (%d%%) | %sW/%sW | %s\n" \
+        "$temp" "$gpu_util" "$mem_util" "$vram_used_mb" "$vram_total_mb" "$vram_pct" \
+        "$power_w" "$power_limit_w" "$sm_clk"
+    echo "     llama-server: $llama"
+}
+
+if [ "${1:-}" = "-w" ] || [ "${1:-}" = "--watch" ]; then
+    echo "=== $TARGET 持续监控 ==="
+    echo "  按 Ctrl-C 停止"
+    echo ""
+    trap 'echo ""; echo "已停止。"; exit 0' INT
+    while true; do
+        printf "[%s] " "$(date '+%H:%M:%S')"
+        fetch_one || true
+        sleep "${2:-1}"
+    done
+else
+    fetch_one
+fi

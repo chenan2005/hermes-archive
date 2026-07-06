@@ -1,6 +1,8 @@
 # IT 资产清单
 
-> 最后更新: 2026-07-05
+> 最后更新: 2026-07-06
+> 变更:
+>   - 2026-07-06: 37网段 DHCP 静态绑定补全(laptop/realme/9900k/magicpad); magicpad MAC 从随机改为设备MAC; 本机 DNS 去光猫改 AliDNS+DNSPod; SSH config 加 9900k Host alias; /etc/hosts 加 9900k.lan.11
 > 变更:
 >   - 2026-07-05: minipc xray 独立进程已停用 + Xray-SOCKS5 计划任务已删除；等待通过 v2rayN GUI 手动配置；OpenClash 节点名 lenovo-socks → minipc-socks(21:10808)
 >   - 2026-07-04: minipc 已部署 Xray v26.6.1（VLESS+Reality SOCKS5 10808），计划任务 SYSTEM 持久化；OOB 章节确认 PowerShell 可连 WiFi
@@ -63,7 +65,7 @@
   走SOCKS5/Mixed的应用 → sing-box → 223.5.5.5(AliDNS, UDP直发) → 代理节点 → 真实解析
 ```
 
-- 系统 DNS：192.168.71.1（光猫/电信默认） + 223.5.5.5（AliDNS），当前 resolvectl 实际使用 223.5.5.5
+- 系统 DNS：223.5.5.5（AliDNS）+ 119.29.29.29（DNSPod），已移除光猫 DNS（避免被污染）
 - sing-box 独立管理 DNS：`type: "udp" server: "223.5.5.5"`，直发不经过光猫
 - AliDNS 不污染，无论国内国外域名都返回真实 IP
 - 代理流量拿到真实 IP 后通过 VLESS 隧道出去，可到达被封锁站点
@@ -127,7 +129,7 @@
 | minipc (71.21) | `ssh minipc` | chen_ | authorized_keys |
 | ImmortalWrt 生产 (37.1/71.9) | `ssh openwrt` → 37.1（仅 37 子网可达，从 71.x 直连超时）; 通用用 `ssh root@192.168.71.9` | root | authorized_keys |
 | 本机笔记本 (71.24) | 本地 | chenan | 本地 |
-| DESKTOP-EC5NQUM (37.200) | `ssh chenan@192.168.37.200`（无独立 Host alias） | chenan | administrators_authorized_keys |
+| DESKTOP-EC5NQUM (37.200) | `ssh 9900k` | chenan | administrators_authorized_keys |
 | 腾讯云 (122.51.232.209) | `ssh bernarty` | ubuntu | authorized_keys |
 | KVM VPS (154.40.40.38) | `ssh kvm` | root | authorized_keys |
 | 阿里云 ECS | `ssh alibaba` | admin | authorized_keys |
@@ -272,6 +274,7 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | SSH 端口 | 8022 |
 | 类型 | Android aarch64 |
 | CPU | MediaTek 天玑 9400+ |
+| MAC | 0c:e6:7c:34:fd:c7 |
 | RAM | 12 GB + 12G 虚拟 |
 | 存储 | 512 GB |
 | 用户 | chen_ |
@@ -289,6 +292,8 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | 局域网域名 | magicpad.lan.11 |
 | SSH 端口 | 8022 |
 | 类型 | Android aarch64 |
+| 主机名 | rong-yaoMagicPad3-Pro-12-3 |
+| MAC | 80:2a:f6:47:91:78 |
 | 主机名 | rong-yaoMagicPad3-Pro-12-3 |
 | 用户 | u0_a250 |
 | SSH | key: ~/.ssh/id_ed25519, alias: `ssh magicpad`, 反向免密: `ssh -p 30234 chenan@www.bernarty.xyz` |
@@ -377,7 +382,7 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | 类型 | Windows |
 | CPU | Intel Core i9-9900K |
 | 用户 | chenan |
-| SSH | key: ~/.ssh/id_ed25519, `ssh chenan@192.168.37.200`（无独立 Host alias） |
+| SSH | key: ~/.ssh/id_ed25519, alias: `ssh 9900k` |
 | WOL | ✅ 已验证支持 |
 | 网段 | 192.168.37.0/24 |
 
@@ -402,6 +407,14 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 
 > 之前以为光猫 WiFi（192.168.1.x）是隔离管理通道。2026-06-26 实测：**光猫 WiFi 分配 71.x 网段 IP**，LAN 与 WiFi 在同一 71.x 广播域（已验证互通）。
 > **桥接模式注意**：光猫 LAN 口桥接到 PON 光纤（71.x），WiFi 同样分配 71.x 网段 IP，LAN 与 WiFi 可互通（已验证）。
+>
+> **如何访问管理页面**：192.168.1.1 是光猫内部管理通道，桥接模式下与 71.x 桥接网段隔离——从本机(71.24) ping 不通、curl 返回 000。但 ImmortalWrt WAN 口直连光猫，可以访问（HTTP 200）。方法：
+> ```bash
+> # 建立 SSH 隧道（本机执行）
+> ssh -f -N -L 18080:192.168.1.1:80 root@192.168.71.9
+> # 然后浏览器打开 http://localhost:18080
+> # 用完后关隧道：pkill -f 'ssh.*18080:192.168.1.1'
+> ```
 
 ### 带外管理通道 (OOB)
 

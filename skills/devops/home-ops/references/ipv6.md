@@ -24,6 +24,52 @@
 
 **当前状态 (2026-07-06)**: ImmortalWrt IPv6 已调通，所有设备正常。
 
+## 71 网段 vs 37 网段：IPv6 DNS 行为完全不同
+
+这是理解家庭网络 IPv6 DNS 的核心架构差异：
+
+```
+71 网段（OLT 直连）:             37 网段（ImmortalWrt 后）:
+  OLT RA RDNSS ↓                    ImmortalWrt dnsmasq ↓
+  电信 IPv6 DNS (240e:58:...)        路由器 IPv6 DNS (240e:389:...)
+  → 污染 ❌                          → dnsmasq → OpenClash DNS → 干净 ✅
+  → 需 DisabledComponents=0x20       → 无需任何修改
+```
+
+| | 71 网段 (9950x3d, minipc, 本机) | 37 网段 (9900K, realme, etc.) |
+|---|---|---|
+| IPv6 DNS 来源 | OLT RA RDNSS (电信 DNS) | ImmortalWrt dnsmasq |
+| IPv6 DNS 地址 | `240e:58:c000:...` | `240e:389:a3a5:3f00::1` |
+| DNS 是否被污染 | ❌ 是（电信注入） | ✅ 否（走 OpenClash） |
+| 需 DisabledComponents? | ✅ 需要 | ❌ 不需要 |
+| IPv4 DNS 途径 | `192.168.71.9`（需 dnsmasq listen_address） | `192.168.37.1`（dnsmasq 默认监听） |
+
+**关键结论**：只有直连 OLT 的 Windows 设备才需要 `DisabledComponents=0x20`。
+37 网段设备（9900K、realme 等）的 IPv6 DNS 走路由器 dnsmasq → OpenClash，天然干净。
+
+### Windows DNS 诊断工具差异
+
+`nslookup` 和 `Resolve-DnsName` 行为不同，排查时注意：
+
+| 工具 | 行为 | 超时 |
+|------|------|------|
+| `nslookup` | 直接查询 DNS 服务器，**绕过 Windows DNS Client** | 2s（硬编码） |
+| `Resolve-DnsName` | 走系统 DNS 解析栈（含缓存、重试） | 系统默认 |
+| 浏览器/应用 | 走系统 DNS 解析栈 | 系统默认 |
+
+`nslookup` 的 2 秒超时不能反映实际浏览体验。只要 `Resolve-DnsName` 和浏览器正常，`nslookup timeout` 可以忽略。
+
+## 已知问题：LAN 设备 IPv6 WAN 转发
+
+ImmortalWrt 当前 IPv6 默认路由使用 source-specific routing（`from 240e:389:a3a5:3f00::/64`），路由器自身可以出 IPv6，但 LAN 设备（37.x）的 IPv6 包转发到 WAN 时失败（`Network unreachable`）。表现为：
+
+- 路由器 `ping6 -I 240e:389:a3a5:3f00::1 2400:3200::1` → ✅
+- LAN 设备（9900K）`ping -6 2400:3200::1` → ❌
+- LAN IPv6 通信正常（9900K ↔ 路由器）
+- 不影响翻墙（OpenClash TPROXY 走 IPv4）
+
+**待解决**：需要排查 source-specific 路由的行为，或改用 NDP proxy 模式。
+
 ## OpenWrt 24.10 ImmortalWrt IPv6 完整配置
 
 ### 1. /etc/config/network
@@ -107,15 +153,18 @@ sysctl -w net.ipv6.conf.eth1.accept_ra=2
 ```bash
 mkdir -p /etc/hotplug.d/dhcpv6
 
-cat > /etc/hotplug.d/dhcpv6/99-default-route << 'EOF'
+# 97-br-lan-route: 确保 br-lan 路由优先级高于 eth1（关键！）
+cat > /etc/hotplug.d/dhcpv6/97-br-lan-route << 'EOF'
 #!/bin/sh
 [ "$INTERFACE" = "wan6" ] || exit 0
 [ "$ACTION" = "ifup" ] || exit 0
 sleep 2
-ip -6 route replace default via fe80::105:7cc9:26ef:316 dev eth1 metric 512 2>/dev/null
+# br-lan metric 128 < eth1 metric 256 → 回包优先走 br-lan
+ip -6 route replace 240e:389:a3a5:3f00::/64 dev br-lan metric 128 2>/dev/null
 EOF
-chmod +x /etc/hotplug.d/dhcpv6/99-default-route
+chmod +x /etc/hotplug.d/dhcpv6/97-br-lan-route
 
+# 98-br-lan-ipv6: 添加 br-lan 静态 IPv6 + 开启转发
 cat > /etc/hotplug.d/dhcpv6/98-br-lan-ipv6 << 'EOF'
 #!/bin/sh
 [ "$INTERFACE" = "wan6" ] || exit 0
@@ -125,9 +174,47 @@ ip -6 addr replace 240e:389:a3a5:3f00::1/64 dev br-lan 2>/dev/null
 sysctl -w net.ipv6.conf.all.forwarding=1
 EOF
 chmod +x /etc/hotplug.d/dhcpv6/98-br-lan-ipv6
+
+# 99-default-route: 添加无源约束的默认路由
+cat > /etc/hotplug.d/dhcpv6/99-default-route << 'EOF'
+#!/bin/sh
+[ "$INTERFACE" = "wan6" ] || exit 0
+[ "$ACTION" = "ifup" ] || exit 0
+sleep 2
+ip -6 route replace default via fe80::105:7cc9:26ef:316 dev eth1 metric 512 2>/dev/null
+EOF
+chmod +x /etc/hotplug.d/dhcpv6/99-default-route
 ```
 
 ## ⚠️ OpenWrt 24.10 fw4 防火墙：IPv6 被阻断的根因
+
+## ⚠️ LAN 设备 IPv6 外网不通：路由表冲突
+
+**症状**: 路由器自身能 ping6 外网，LAN 设备能 ping6 路由器，但 LAN 设备无法 ping6 外网。
+
+**根因**: 当 WAN (eth1) 和 LAN (br-lan) **共享同一 /64 前缀**（ND Proxy 模式），内核路由表中两条路由：
+```
+240e:389:a3a5:3f00::/64 dev eth1  metric 256
+240e:389:a3a5:3f00::/64 dev br-lan metric 256
+```
+metric 相同，tiebreak 后 eth1 优先。回包到达路由器时，dst=LAN 设备地址的内核路由到 eth1——但 LAN 设备在 br-lan，导致丢包。
+
+**诊断**:
+```bash
+# 本应走 br-lan 却走 eth1 → 确认冲突
+ip -6 route get 240e:389:a3a5:3f00::200
+# 输出: dev eth1 src ...  ← 应该是 dev br-lan！
+```
+
+**修复**:
+```bash
+# 降低 br-lan 的 metric 使其优先
+ip -6 route replace 240e:389:a3a5:3f00::/64 dev br-lan metric 128
+```
+
+**持久化**: hotplug 脚本 `97-br-lan-route`（在 wan6 ifup 时执行）。
+
+**教训**: NDP proxy 不是根因。不需要 NAT66。跟防火墙无关。纯粹的路由表优先级问题。
 
 **这是 ImmortalWrt IPv6 不通的真正原因，非 Hyper-V 问题。**
 
@@ -237,7 +324,9 @@ Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameter
     -Name 'DisabledComponents' -Value 0x20 -Type DWORD -Force
 ```
 
-**原理**：不删除 IPv6 DNS 服务器列表，但让 Windows DNS Client 始终优先查询 IPv4 DNS (192.168.71.9 → OpenClash)。IPv6 DNS 仍在列表中，仅在 IPv4 DNS 完全不可用时作为最后备用。
+> **Linux 对比**：Linux (systemd-resolved / NetworkManager) **不会**自动接收 RA RDNSS 下发的 IPv6 DNS 服务器。`resolvectl dns` 只显示管理员手动配置或 DHCPv4 下发的 DNS 地址，且全部为 IPv4。因此本机 Linux 无需任何额外配置即可避免 IPv6 DNS 污染——它根本没有 IPv6 DNS 服务器。这是 Windows 独有的问题。
+
+**原理**：不删除...
 
 **效果**：
 - DNS → IPv4 → 71.9 → OpenClash → 干净域名解析 ✅

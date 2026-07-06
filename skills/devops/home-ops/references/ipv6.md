@@ -277,4 +277,14 @@ powershell -ExecutionPolicy Bypass -File fix-ipv6-dns.ps1 -Apply
 
 ### 为什么不在路由器侧劫持 DNS
 
-路由器 `dnsmasq` 绑定在 `br-lan` (37.x)，71 网段客户端请求 240e:389:a3a5:3f00::1:53 走 WAN 入站路径。虽然 dnsmasq 全局 `localservice=0` 不拒绝外部查询，但响应包的回程路径（br-lan→eth1）在 IPv6 转发中可能遇到 rp_filter 或路由问题，导致 DNS 解析超时。客户端侧禁用 IPv6 DNS 更简单可靠。
+路由器 `dnsmasq` 绑定在 `br-lan` (37.x)，71 网段客户端请求 `240e:389:a3a5:3f00::1:53` 走 WAN 入站路径。响应包的回程路径（br-lan→eth1）在 IPv6 转发中遇到问题导致超时。客户端侧 DNS 优先 IPv4 更简单可靠——DisableComponents=0x20 后，DNS 自动走 `192.168.71.9:53`。
+
+**注意**：如果客户端手动设了 IPv4 DNS = `192.168.71.9`，必须确保 dnsmasq 在该 IP 上监听，否则所有 DNS 超时：
+
+```bash
+uci add_list dhcp.@dnsmasq[0].listen_address="192.168.71.9"
+uci commit dhcp
+/etc/init.d/dnsmasq restart
+```
+
+详见 `home-ops/proxy-openclash.md` Pitfall 10k。

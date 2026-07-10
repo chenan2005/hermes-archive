@@ -83,6 +83,8 @@ For the reminder system architecture and how to add new categories, see `referen
 - t3 [x] [一般] 打通 192.168.71.9 作为网关的连接及代理可用
 - t4 [x] [一般] 旁路由迁移（11→9，ImmortalWrt 接管）
 - t6 [ ] [一般] Seoul Reality dest 域名从 bing 换更冷门的（如 amazon.com），并考虑定期轮换
+- t7 [ ] [一般] 试用 BrowserSkill（腾讯开源 MIT，让 AI 用已登录浏览器操作网页，支持 Hermes Agent）
+- t8 [ ] [一般] 搭建本地视频内容分析 pipeline（Qwen3-VL/2.5-VL + Whisper → LLM 融合，跑 RTX 5090）
 ## 回家待办
 
 - t5 [x] [回家] 搞定 9900K PC 登录，实现免密连接

@@ -34,7 +34,10 @@
 - **执行多条复杂命令需要先写好脚本review之后再执行**
 - **遇困难**：小困难自行克服；大困难给出分析+方案提议，讨论后再继续
 - **排查优先上网搜索**，不反复本地试错
+- **排查前先查已有知识**：遇到任何问题，在动手诊断之前，先加载相关 skill 检查 pitfalls 章节——home-ops 的 proxy-openclash.md 和 windows.md 已经覆盖了绝大多数历史踩坑（MATCH规则、DNS缓存隔离、Hyper-V save/restore、WinRM SSH恢复、系统代理残留、VM设置需先停等）。禁止凭记忆裸排，记忆会遗漏细节导致重走弯路
 - **复杂排障后主动问**：是否要把排查方案存为 skill
+- **Windows 代理排查**：用户说"上不了网"时，在 curl 测试网络层通畅后，立即检查系统代理残留（`reg query HKCU\...ProxyServer` + `ProxyEnable`）——删除代理客户端（sing-box/v2rayN）不会自动清除这些注册表项
+- **Hyper-V VM 设置变更**：`Set-VM -AutomaticStopAction` 在 VM 运行时直接报错，必须先 `Stop-VM` → `Set-VM` → `Start-VM`，不管通过 SSH 还是 WinRM 都一样
 - 浏览器工具优先级：`browser_console` / `browser_snap`（根据场景选择） > `browser_vision`
 - **vision_analyze 调用规范**：question 参数必须携带上下文（前1-2句交代当前任务/文章主题/场景背景），不写裸的"描述这张图片"。帮助视觉模型理解图片背景，提高分析准确度
 

@@ -73,4 +73,4 @@ bash scripts/start_edge.sh https://www.toutiao.com/
 - **刷新按钮点击无效** — React 事件监听不响应 CDP/JS click，必须 ESC 关闭 + 重新打开
 - **CDP 截图超时** — `Page.captureScreenshot` 在 1000+px 页面会很慢（8s 超时），用 `import -window` 替代
 - **import 坐标偏移** — `import -window` 捕获包含 titlebar 的窗口像素，titlebar 高度约 129px
-- **代理拦截飞书 API** — 调用飞书前必须 `http_proxy='' https_proxy=''`
+- **代理问题** — sing-box 有 geosite 自动分流，飞书域名（feishu.cn）应直连。但脚本中仍显式设 `http_proxy=''` + curl `--noproxy *` 作为防御性措施，减少一层跳转并避免 sing-box 异常时的连锁故障。

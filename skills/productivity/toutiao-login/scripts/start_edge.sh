@@ -14,7 +14,6 @@ DISPLAY=:0 microsoft-edge \
   --remote-allow-origins=* \
   --no-first-run \
   --no-default-browser-check \
-  --proxy-server= \
   --window-size=1400,900 \
   --window-position=100,50 \
   "$URL" &

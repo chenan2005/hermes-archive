@@ -1,7 +1,9 @@
 # IT 资产清单
 
-> 最后更新: 2026-07-06
+> 最后更新: 2026-07-16
 > 变更:
+>   - 2026-07-16: 光猫 HN8145X6N 管理入口 + IPv6 防火墙发现（useradmin 只读, telecomadmin 密码未知）
+>   - 2026-07-08: 本机安装 xrdp + MATE 桌面（降级远程方案）+ Sunshine（主力远程桌面, H.264 Vulkan 硬编码 25Mbps, Moonlight 客户端接入），详见 linux-remote-desktop.md
 >   - 2026-07-06: 37网段 DHCP 静态绑定补全(laptop/realme/9900k/magicpad); magicpad MAC 从随机改为设备MAC; 本机 DNS 去光猫改 AliDNS+DNSPod; SSH config 加 9900k Host alias; /etc/hosts 加 9900k.lan.11
 > 变更:
 >   - 2026-07-05: minipc xray 独立进程已停用 + Xray-SOCKS5 计划任务已删除；等待通过 v2rayN GUI 手动配置；OpenClash 节点名 lenovo-socks → minipc-socks(21:10808)
@@ -129,7 +131,7 @@
 | minipc (71.21) | `ssh minipc` | chen_ | authorized_keys |
 | ImmortalWrt 生产 (37.1/71.9) | `ssh openwrt` → 37.1（仅 37 子网可达，从 71.x 直连超时）; 通用用 `ssh root@192.168.71.9` | root | authorized_keys |
 | 本机笔记本 (71.24) | 本地 | chenan | 本地 |
-| DESKTOP-EC5NQUM (37.200) | `ssh 9900k` | chenan | administrators_authorized_keys |
+| 9900k (37.200) | `ssh 9900k` | chenan | administrators_authorized_keys |
 | 腾讯云 (122.51.232.209) | `ssh bernarty` | ubuntu | authorized_keys |
 | KVM VPS (154.40.40.38) | `ssh kvm` | root | authorized_keys |
 | 阿里云 ECS | `ssh alibaba` | admin | authorized_keys |
@@ -198,7 +200,8 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | 硬盘 | Kingston SA2000 NVMe 1TB (/ 181G, /data 600G) |
 | 网卡 | WiFi: ChinaNet-pfwQ-5G, 71.24/24（固定IP，不走DHCP） |
 | Hermes | 默认 profile |
-| 角色 | 内网跳板机 + FRP 入口 + sing-box 代理 |
+| 角色 | 内网跳板机 + FRP 入口 + sing-box 代理 + 远程桌面服务器 |
+| 远程桌面 | **Sunshine** (主力): H.264 Vulkan 硬编码, 25Mbps, user service linger=yes, Moonlight 接入。**xrdp+MATE** (降级): RDP 3389, dbus-launch 隔离, ufw 已放行 71.0/24+37.0/24 |
 | FRPC 配置 | `/etc/frp/frpc.toml` — systemd 服务 (root), 单隧道: 本机:22 → bernarty.xyz:30234, 默认 auto-reconnect |
 | DNS 配置 | systemd-resolved, `resolvectl domain wlp1s0 ~lan.11` 让 `.lan.11` 走 71.9 解析; 系统DNS: 192.168.71.1 + 223.5.5.5（resolvectl 当前实际使用 223.5.5.5） |
 | 静态路由 | `192.168.37.0/24 via 192.168.71.9` — 永久写入 ChinaNet-pfwQ-5G 连接（`nmcli con mod +ipv4.routes`）。从 71.x 访问 37.x 子网（含 ImmortalWrt LAN 口 37.1）必经此路由 |
@@ -372,19 +375,22 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | 退役原因 | PassWall → OpenClash 迁移 + 系统版本升级 |
 | 历史服务 | PassWall, v2ray, xray, smartdns, alist, nginx, zerotier |
 
-### 设备13: DESKTOP-EC5NQUM (i9-9900K 台式机) [新增]
+### 设备13: 9900k (i9-9900K 台式机)
 
 | 项目 | 详情 |
 |------|------|
 | IP | 192.168.37.200 |
-| 主机名 | DESKTOP-EC5NQUM |
+| 主机名 | **9900k**（原 DESKTOP-EC5NQUM，2026-07-12 改名）|
 | MAC | e0:d5:5e:d3:d7:4e (Intel) |
-| 类型 | Windows |
+| 类型 | Windows 11 |
 | CPU | Intel Core i9-9900K |
+| GPU | NVIDIA RTX 2070 SUPER |
 | 用户 | chenan |
-| SSH | key: ~/.ssh/id_ed25519, alias: `ssh 9900k` |
-| WOL | ✅ 已验证支持 |
-| 网段 | 192.168.37.0/24 |
+| SSH | `ssh 9900k` — key: ~/.ssh/id_ed25519, User chenan, HostName 192.168.37.200 |
+| WOL | ✅ MAC e0:d5:5e:d3:d7:4e — `ssh openwrt 'wol e0:d5:5e:d3:d7:4e'` |
+| Sunshine | ✅ v2026.516.143833, 管理页 `https://192.168.37.200:47990/`，用户 chenan |
+| 网段 | 192.168.37.0/24 (br-lan) |
+| 备注 | 原生键盘 Enter 键损坏，`linux-keyboard-remapping` skill 修复 |
 
 ### 设备14: 华为 HN8145X6N 光猫 (天翼网关)
 
@@ -396,7 +402,7 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | OLT侧网关 MAC | 7c:c9:26:ef:03:16 (GreeNet) |
 | 管理页面 | http://192.168.1.1 |
 | 管理用户/密码 | useradmin / 7nia7 |
-| 超级管理员 | telecomadmin / nE7jA%5m (推测) |
+| 超级管理员 | telecomadmin / 未知（`nE7jA%5m` 和 `admintelecom` 均错误，V5.23固件封堵了已知获取方式） |
 | 型号 | HN8145X6N (10G-EPON, 双频WiFi6) |
 | 软件版本 | V5.23.C00S120 |
 | 类型 | 光猫 ONU/ONT (PON桥接模式) |
@@ -404,16 +410,22 @@ Android 设备通过 FRP 隧道回连本机，用于在手机上操作本机 tmu
 | 连接设备 | minipc/9950x3d/OpenWrt×2 + 1未知 (71.x网段) |
 | WiFi | ChinaNet-pfwQ (2.4G) / ChinaNet-pfwQ-5G（密码: 36ugq6ra） |
 | SSH | ❌ 不支持 |
+| IPv6防火墙 | ✅ **已启用**（`安全 → 防火墙 → IPv6防火墙` → `使能IPv6防火墙控制转发报文`）— useradmin 只能查看无法修改，阻止所有 WAN→LAN IPv6 入站连接 |
+| 管理入口 | 见下方「如何访问管理页面」 |
 
 > 之前以为光猫 WiFi（192.168.1.x）是隔离管理通道。2026-06-26 实测：**光猫 WiFi 分配 71.x 网段 IP**，LAN 与 WiFi 在同一 71.x 广播域（已验证互通）。
 > **桥接模式注意**：光猫 LAN 口桥接到 PON 光纤（71.x），WiFi 同样分配 71.x 网段 IP，LAN 与 WiFi 可互通（已验证）。
 >
-> **如何访问管理页面**：192.168.1.1 是光猫内部管理通道，桥接模式下与 71.x 桥接网段隔离——从本机(71.24) ping 不通、curl 返回 000。但 ImmortalWrt WAN 口直连光猫，可以访问（HTTP 200）。方法：
+> **如何访问管理页面**：
+>
+> **可直接访问（本机网关 71.1）**：本机 (71.24) 当前网关为 71.1（OLT），`192.168.1.1` 路由可达，无需隧道。
+>   - 端口 **80**：`http://192.168.1.1/cgi-bin/luci` — 电信智能网关 LuCI，功能较少
+>   - 端口 **8080**：`http://192.168.1.1:8080` — 天翼网关原生界面，**功能丰富**（有安全→防火墙→IPv6防火墙等）
+>
+> **SSH 隧道备选**（当本机网关切回 71.9 时）：
 > ```bash
-> # 建立 SSH 隧道（本机执行）
 > ssh -f -N -L 18080:192.168.1.1:80 root@192.168.71.9
-> # 然后浏览器打开 http://localhost:18080
-> # 用完后关隧道：pkill -f 'ssh.*18080:192.168.1.1'
+> # 浏览器打开 http://localhost:18080
 > ```
 
 ### 带外管理通道 (OOB)

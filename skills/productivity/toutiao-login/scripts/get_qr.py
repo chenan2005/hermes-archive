@@ -1,36 +1,28 @@
 #!/usr/bin/env python3
 """
-今日头条扫码登录 - 自动定位二维码并推送飞书
+今日头条扫码登录 - 获取二维码并推送飞书
 
 用法: python3 get_qr.py <WS_URL>
 例:   python3 get_qr.py ws://127.0.0.1:9222/devtools/page/ABC123
 
-全流程无 LLM 中转:
-  1. CDP 连接 → ESC 关闭弹窗 → 点击登录按钮
-  2. CDP 获取 QR 元素精确坐标 (getBoundingClientRect)
-  3. import 截取 Edge 窗口
-  4. 动态计算 titlebar 偏移 → Pillow 裁剪 QR 区域
-  5. 飞书 API 上传图片并发送
+全流程无 LLM 中转 (~10s 完成):
+  1. CDP 连接 → ESC 关闭弹窗 → JS .click() 打开登录
+  2. 等待 QR 渲染 (2s)
+  3. 从 DOM img.src 提取 base64 二维码
+  4. 飞书 API 上传图片并发送
 
-依赖: websocket-client, Pillow, xdotool, imagemagick, curl
+依赖: websocket-client, Pillow, curl
 """
 
-import websocket, json, time, os, sys, urllib.request, subprocess
-from PIL import Image
+import websocket, json, time, os, sys, urllib.request, subprocess, base64
 
 # ============ 配置 ============
 FEISHU_APP_ID = 'cli_aa969a7a3f785cce'
-FEISHU_SECRET_PATH = os.path.expanduser('~/.hermes/.env')
+FEISHU_SECRET_PATH = '/home/chenan/.hermes/.env'
 FEISHU_CHAT_ID = 'oc_f8b7d27c97f45ca5b89fec45760c5728'
-
-LOGIN_BTN_X = 1131
-LOGIN_BTN_Y = 345
 
 SS_PATH = '/tmp/toutiao_edge_ss.png'
 QR_PATH = '/tmp/toutiao_qr.png'
-
-# QR 裁剪边距 (px) - 包含二维码周围文字区域
-CROP_MARGIN = 20
 
 # ============ 工具函数 ============
 
@@ -42,7 +34,7 @@ def get_feishu_secret():
     raise RuntimeError(f'FEISHU_APP_SECRET not found in {FEISHU_SECRET_PATH}')
 
 def cdp_session(ws_url):
-    """返回 CDP 会话上下文管理器"""
+    """返回 CDP 会话"""
     ws = websocket.create_connection(ws_url, timeout=10)
     cid = [0]
     
@@ -52,7 +44,7 @@ def cdp_session(ws_url):
         if params:
             msg['params'] = params
         ws.send(json.dumps(msg))
-        dl = time.monotonic() + 8
+        dl = time.monotonic() + 10
         while time.monotonic() < dl:
             try:
                 r = json.loads(ws.recv())
@@ -95,10 +87,10 @@ def feishu_send_image(img_path):
     
     # 上传图片
     upload = subprocess.run([
-        'curl', '-s', '-X', 'POST', '--noproxy', '*',
+        'curl', '-s', '--noproxy', '*',
         'https://open.feishu.cn/open-apis/im/v1/images',
         '-H', f'Authorization: Bearer {token}',
-        '-F', 'image_type="message"',
+        '-F', 'image_type=message',
         f'-F', f'image=@{img_path}'
     ], capture_output=True, text=True, env={**os.environ, 'http_proxy': '', 'https_proxy': ''})
     data = json.loads(upload.stdout)
@@ -122,32 +114,6 @@ def feishu_send_image(img_path):
     print(f'飞书: {result.get("msg", result)}')
     return True
 
-def get_qr_position(sess):
-    """通过 CDP 获取 QR 元素精确位置和窗口信息"""
-    info = sess.ev("""(function(){
-        var wrapper = document.querySelector('.web-login-scan-code__content__qrcode-wrapper');
-        var img = document.querySelector('.web-login-scan-code__content__qrcode-wrapper__qrcode');
-        if(!wrapper || !img) return 'NOT_FOUND';
-        
-        var rWrap = wrapper.getBoundingClientRect();
-        var rImg = img.getBoundingClientRect();
-        
-        return JSON.stringify({
-            wrapper: {x: rWrap.x, y: rWrap.y, w: rWrap.width, h: rWrap.height},
-            img: {x: rImg.x, y: rImg.y, w: rImg.width, h: rImg.height},
-            innerW: window.innerWidth,
-            innerH: window.innerHeight,
-            outerW: window.outerWidth,
-            outerH: window.outerHeight,
-            qrLoaded: img.naturalWidth > 0 && img.complete
-        });
-    })()""")
-    
-    if info == 'NOT_FOUND':
-        return None
-    
-    return json.loads(info)
-
 # ============ 主流程 ============
 
 def main():
@@ -163,97 +129,59 @@ def main():
         'type': 'keyDown', 'text': 'Escape', 'key': 'Escape', 'code': 'Escape',
         'nativeVirtualKeyCode': 27, 'windowsVirtualKeyCode': 27
     })
-    time.sleep(0.5)
-    sess.call('Input.dispatchKeyEvent', {
-        'type': 'keyUp', 'text': 'Escape', 'key': 'Escape', 'code': 'Escape',
-        'nativeVirtualKeyCode': 27, 'windowsVirtualKeyCode': 27
-    })
-    time.sleep(1)
+    time.sleep(0.3)
     
-    # 3. 点击登录按钮
-    print('3. 点击登录按钮...')
-    sess.call('Input.dispatchMouseEvent', {
-        'type': 'mousePressed', 'x': LOGIN_BTN_X, 'y': LOGIN_BTN_Y,
-        'button': 'left', 'clickCount': 1
-    })
-    time.sleep(0.05)
-    sess.call('Input.dispatchMouseEvent', {
-        'type': 'mouseReleased', 'x': LOGIN_BTN_X, 'y': LOGIN_BTN_Y,
-        'button': 'left', 'clickCount': 1
+    # 3. 清除 cookies 和缓存（必须！否则浏览器缓存 QR 数据导致过期）
+    print('3. 清除 cookies...')
+    sess.call('Network.clearBrowserCookies')
+    sess.call('Storage.clearDataForOrigin', {
+        'origin': 'https://www.toutiao.com',
+        'storageTypes': 'cookies,local_storage,shader_cache,indexeddb,web_sql,cache_storage'
     })
     
-    # 4. 等待 QR 渲染
-    print('4. 等待 QR 渲染...')
+    # 4. 强制刷新页面
+    print('4. 刷新页面...')
+    sess.call('Page.reload', {'ignoreCache': True})
     time.sleep(3)
     
-    qr_info = sess.ev("""(function(){
-        var i = document.querySelector('.web-login-scan-code__content__qrcode-wrapper__qrcode');
-        if(!i) return 'NO_IMG';
-        return JSON.stringify({len: i.src.length, nw: i.naturalWidth, complete: i.complete});
-    })()""")
-    print(f'   QR: {qr_info}')
+    # 5. JS .click() 打开登录
+    print('5. 打开登录弹窗...')
+    result = sess.ev('(function(){ var btn = document.querySelector("a.login-button"); if(btn){btn.click();return "clicked";} return "no"; })()')
+    print(f'   Click result: {result}')
     
-    # 5. 获取 QR 精确位置
-    print('5. 定位 QR...')
-    position = get_qr_position(sess)
-    if position is None:
-        print('ERROR: QR element not found')
+    # 6. 等待 QR 渲染
+    print('6. 等待 QR 渲染...')
+    time.sleep(2)
+    
+    qr_check = sess.ev('(function(){ var i = document.querySelector(".web-login-scan-code__content__qrcode-wrapper__qrcode"); return i ? JSON.stringify({len:i.src.length,nw:i.naturalWidth}) : "NO"; })()')
+    print(f'   QR: {qr_check}')
+    
+    # 5. 从 DOM img.src 提取 base64
+    print('5. 提取 QR base64...')
+    b64 = sess.ev('(function(){ var i = document.querySelector(".web-login-scan-code__content__qrcode-wrapper__qrcode"); if(!i) return null; return i.src.split(",")[1]; })()')
+    
+    if not b64:
+        print('ERROR: QR base64 not found')
         sess.close()
         return
     
-    print(f'   wrapper: {position["wrapper"]}')
-    print(f'   img: {position["img"]}')
-    print(f'   window: {position["innerW"]}x{position["innerH"]} (outer: {position["outerW"]}x{position["outerH"]}')
+    data = base64.b64decode(b64)
+    with open(QR_PATH, 'wb') as f:
+        f.write(data)
+    print(f'   QR saved: {len(data)} bytes')
     
-    # 计算 titlebar 高度
-    titlebar_h = position['outerH'] - position['innerH']
-    print(f'   titlebar height: {titlebar_h}px')
+    # 6. 验证
+    from PIL import Image
+    img = Image.open(QR_PATH)
+    gray = img.convert('L')
+    dark = sum(1 for x in range(img.width) for y in range(img.height) if gray.getpixel((x,y)) < 128)
+    total = img.width * img.height
+    print(f'   QR: {img.size}, dark={dark/total*100:.0f}%')
     
-    # 6. 截图
-    print('6. 截图...')
     sess.close()
     
-    edge_win = subprocess.run(
-        ['bash', '-c', 'DISPLAY=:0 xdotool search --name "今日头条" | head -1'],
-        capture_output=True, text=True
-    ).stdout.strip()
-    
-    if not edge_win:
-        print('ERROR: Edge window not found')
-        return
-    
-    os.system(f'DISPLAY=:0 import -window {edge_win} {SS_PATH} 2>/dev/null')
-    print(f'   SS: {os.path.getsize(SS_PATH)} bytes')
-    
-    # 7. 动态裁剪 QR
-    print('7. 裁剪 QR...')
-    img = Image.open(SS_PATH)
-    ss_w, ss_h = img.size
-    print(f'   screenshot: {ss_w}x{ss_h}')
-    
-    # QR wrapper 在窗口截图中的坐标
-    # import -window 截的是整个窗口 (含 titlebar)
-    # viewport 起始位置: x=0, y=titlebar_h
-    w = position['wrapper']
-    crop_x = int(w['x'])
-    crop_y = int(w['y']) + titlebar_h
-    crop_w = int(w['w']) + CROP_MARGIN * 2
-    crop_h = int(w['h']) + CROP_MARGIN * 2
-    
-    # 边界检查
-    crop_x = max(0, crop_x - CROP_MARGIN)
-    crop_y = max(titlebar_h, crop_y - CROP_MARGIN)
-    crop_x2 = min(ss_w, crop_x + crop_w)
-    crop_y2 = min(ss_h, crop_y + crop_h)
-    
-    print(f'   crop: ({crop_x}, {crop_y}, {crop_x2-crop_x}x{crop_y2-crop_y})')
-    
-    crop = img.crop((crop_x, crop_y, crop_x2, crop_y2))
-    crop.save(QR_PATH)
-    print(f'   QR: {os.path.getsize(QR_PATH)} bytes, {crop.size}')
-    
-    # 8. 发飞书
-    print('8. 推送飞书...')
+    # 7. 发飞书
+    print('6. 推送飞书...')
     if feishu_send_image(QR_PATH):
         print('已发送！快扫！')
     else:

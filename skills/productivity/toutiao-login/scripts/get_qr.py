@@ -158,7 +158,7 @@ def main():
     
     # 5. 从 DOM img.src 提取 base64
     print('5. 提取 QR base64...')
-    b64 = sess.ev('(function(){ var i = document.querySelector(".web-login-scan-code__content__qrcode-wrapper__qrcode"); if(!i) return null; return i.src.split(",")[1]; })()')
+    b64 = sess.ev('(function(){ var i = document.querySelector(".web-login-scan-code__content__qrcode-wrapper__qrcode"); if(!i) return null; if(!i.src.startsWith("data:")) return null; return i.src.split(",")[1]; })()')
     
     if not b64:
         print('ERROR: QR base64 not found')
@@ -176,7 +176,14 @@ def main():
     gray = img.convert('L')
     dark = sum(1 for x in range(img.width) for y in range(img.height) if gray.getpixel((x,y)) < 128)
     total = img.width * img.height
-    print(f'   QR: {img.size}, dark={dark/total*100:.0f}%')
+    dark_pct = dark/total*100
+    print(f'   QR: {img.size}, dark={dark_pct:.0f}%')
+    
+    # QR 应有 20-60% 暗像素，且尺寸合理
+    if dark_pct < 20 or dark_pct > 60 or img.width < 200 or img.height < 200:
+        print(f'   WARNING: QR may be placeholder (dark={dark_pct:.0f}%, size={img.size})')
+        sess.close()
+        return
     
     sess.close()
     

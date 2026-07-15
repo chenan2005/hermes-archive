@@ -85,6 +85,7 @@ For the reminder system architecture and how to add new categories, see `referen
 - t6 [ ] [一般] Seoul Reality dest 域名从 bing 换更冷门的（如 amazon.com），并考虑定期轮换
 - t7 [ ] [一般] 试用 BrowserSkill（腾讯开源 MIT，让 AI 用已登录浏览器操作网页，支持 Hermes Agent）
 - t8 [ ] [一般] 搭建本地视频内容分析 pipeline（Qwen3-VL/2.5-VL + Whisper → LLM 融合，跑 RTX 5090）
+- t9 [ ] [一般] 研究 MonkeyOCRv2（华科+金山，0.7B干翻235B，文档原生视觉编码器），评估在 RTX 5090 上跑文档 OCR/图文混排解析流水线的可行性
 ## 回家待办
 
 - t5 [x] [回家] 搞定 9900K PC 登录，实现免密连接
